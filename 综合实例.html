@@ -1,0 +1,38 @@
+<html>
+<head><title>LAMP学员基本信息</title></head>
+<body>
+	<table>
+	<caption><h2>LAMP学员基本信息</h2></caption>
+	<form action="server.php" methon="post">
+		<tr>
+		<th>姓名：</th>
+		<td><input type="text" name="usename" size="20"></td>
+		</tr>
+		<tr>
+		<th>性别：</th>
+		<td>
+		<input type="radio" name=sex checked>男
+		<input type="radio" name=sex >女
+		<input type="radio" name=sex >保密
+		</td>
+		</tr>
+		<tr>
+		<th>学历：</th>
+		<td>
+		<select name="edu">
+			<option>--请选择--</option>
+			<option value="1">高中</option>
+			<option value="2">大专</option>
+			<option value="3">本科</option>
+			<option value="4">研究生</option>
+			<option value="5">其他</option>
+		</td>
+		</tr>
+		<tr>
+		<th>选修课程：</th>
+			<input type="checkbox" value="4">Linux
+		</tr>
+	</form>
+	</table>
+</body>
+</html>
