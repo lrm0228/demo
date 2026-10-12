@@ -1,51 +1,243 @@
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
-public class Calculator {
+public class LibraryManagementSystem {
 
-    public static double calculate(
-            double a, double b, String operator) {
+    static class Book {
+        private final String id;
+        private String title;
+        private String author;
+        private boolean borrowed;
 
-        switch (operator) {
-            case "+":
-                return a + b;
-            case "-":
-                return a - b;
-            case "*":
-                return a * b;
-            case "/":
-                if (b == 0) {
-                    throw new IllegalArgumentException(
-                        "除数不能为零"
-                    );
+        public Book(String id, String title, String author) {
+            this.id = id;
+            this.title = title;
+            this.author = author;
+            this.borrowed = false;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getAuthor() {
+            return author;
+        }
+
+        public boolean isBorrowed() {
+            return borrowed;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public void setAuthor(String author) {
+            this.author = author;
+        }
+
+        public void borrow() {
+            if (borrowed) {
+                throw new IllegalStateException("该图书已经被借出");
+            }
+            borrowed = true;
+        }
+
+        public void returnBook() {
+            if (!borrowed) {
+                throw new IllegalStateException("该图书当前未被借出");
+            }
+            borrowed = false;
+        }
+
+        @Override
+        public String toString() {
+            return "编号：" + id
+                    + "，书名：" + title
+                    + "，作者：" + author
+                    + "，状态：" + (borrowed ? "已借出" : "在馆");
+        }
+    }
+
+    static class Library {
+        private final List<Book> books = new ArrayList<>();
+
+        public void addBook(Book book) {
+            if (findById(book.getId()) != null) {
+                throw new IllegalArgumentException("图书编号已存在");
+            }
+            books.add(book);
+            System.out.println("图书添加成功：" + book.getTitle());
+        }
+
+        public Book findById(String id) {
+            for (Book book : books) {
+                if (book.getId().equals(id)) {
+                    return book;
                 }
-                return a / b;
-            default:
-                throw new IllegalArgumentException(
-                    "不支持的运算符：" + operator
-                );
+            }
+            return null;
+        }
+
+        public void searchByTitle(String keyword) {
+            boolean found = false;
+
+            for (Book book : books) {
+                if (book.getTitle().toLowerCase()
+                        .contains(keyword.toLowerCase())) {
+                    System.out.println(book);
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                System.out.println("没有找到匹配的图书");
+            }
+        }
+
+        public void borrowBook(String id) {
+            Book book = findById(id);
+
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
+            }
+
+            try {
+                book.borrow();
+                System.out.println("借阅成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("借阅失败：" + e.getMessage());
+            }
+        }
+
+        public void returnBook(String id) {
+            Book book = findById(id);
+
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
+            }
+
+            try {
+                book.returnBook();
+                System.out.println("归还成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("归还失败：" + e.getMessage());
+            }
+        }
+
+        public void showAllBooks() {
+            if (books.isEmpty()) {
+                System.out.println("当前没有图书");
+                return;
+            }
+
+            System.out.println("===== 图书库存 =====");
+            for (Book book : books) {
+                System.out.println(book);
+            }
+        }
+
+        public void showStatistics() {
+            int borrowedCount = 0;
+
+            for (Book book : books) {
+                if (book.isBorrowed()) {
+                    borrowedCount++;
+                }
+            }
+
+            System.out.println("图书总数：" + books.size());
+            System.out.println("已借出：" + borrowedCount);
+            System.out.println("在馆数量：" + (books.size() - borrowedCount));
         }
     }
 
     public static void main(String[] args) {
+        Library library = new Library();
         Scanner scanner = new Scanner(System.in);
 
-        System.out.print("请输入第一个数字：");
-        double a = scanner.nextDouble();
+        library.addBook(new Book("B001", "Java编程思想", "Bruce Eckel"));
+        library.addBook(new Book("B002", "深入理解Java虚拟机", "周志明"));
+        library.addBook(new Book("B003", "设计模式", "Erich Gamma"));
 
-        System.out.print("请输入运算符（+、-、*、/）：");
-        String operator = scanner.next();
+        boolean running = true;
 
-        System.out.print("请输入第二个数字：");
-        double b = scanner.nextDouble();
+        while (running) {
+            System.out.println("\n===== 图书管理系统 =====");
+            System.out.println("1. 添加图书");
+            System.out.println("2. 查询图书");
+            System.out.println("3. 借阅图书");
+            System.out.println("4. 归还图书");
+            System.out.println("5. 查看所有图书");
+            System.out.println("6. 查看库存统计");
+            System.out.println("0. 退出系统");
+            System.out.print("请选择操作：");
 
-        try {
-            double result = calculate(a, b, operator);
-            System.out.println("计算结果：" + result);
-        } catch (IllegalArgumentException e) {
-            System.out.println("计算失败：" + e.getMessage());
-        } finally {
-            scanner.close();
+            String choice = scanner.nextLine().trim();
+
+            try {
+                switch (choice) {
+                    case "1":
+                        System.out.print("请输入图书编号：");
+                        String id = scanner.nextLine().trim();
+                        System.out.print("请输入书名：");
+                        String title = scanner.nextLine().trim();
+                        System.out.print("请输入作者：");
+                        String author = scanner.nextLine().trim();
+
+                        if (id.isEmpty() || title.isEmpty()
+                                || author.isEmpty()) {
+                            System.out.println("图书信息不能为空");
+                            break;
+                        }
+
+                        library.addBook(new Book(id, title, author));
+                        break;
+
+                    case "2":
+                        System.out.print("请输入书名关键词：");
+                        library.searchByTitle(scanner.nextLine().trim());
+                        break;
+
+                    case "3":
+                        System.out.print("请输入图书编号：");
+                        library.borrowBook(scanner.nextLine().trim());
+                        break;
+
+                    case "4":
+                        System.out.print("请输入图书编号：");
+                        library.returnBook(scanner.nextLine().trim());
+                        break;
+
+                    case "5":
+                        library.showAllBooks();
+                        break;
+
+                    case "6":
+                        library.showStatistics();
+                        break;
+
+                    case "0":
+                        running = false;
+                        System.out.println("系统已退出");
+                        break;
+
+                    default:
+                        System.out.println("无效选项，请重新输入");
+                }
+            } catch (IllegalArgumentException e) {
+                System.out.println("操作失败：" + e.getMessage());
+            }
         }
+
+        scanner.close();
     }
 }
