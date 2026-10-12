@@ -1,20 +1,160 @@
-<html>	
-<head><title>ѧԱ��</title></head>
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP 幂等键机制演示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f7fa;
+      color: #263238;
+    }
+    h1 { text-align: center; }
+    .card {
+      background: white;
+      padding: 20px;
+      margin: 16px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px #00000010;
+    }
+    .key {
+      color: #1565c0;
+      font-family: monospace;
+      word-break: break-all;
+    }
+    button {
+      padding: 10px 16px;
+      margin: 5px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #1565c0;
+      color: white;
+    }
+    button:disabled { background: #999; }
+    #log {
+      white-space: pre-wrap;
+      line-height: 1.8;
+      background: #17212b;
+      color: #d7fbe8;
+      padding: 16px;
+      border-radius: 8px;
+      min-height: 140px;
+    }
+    .count { font-size: 24px; font-weight: bold; }
+  </style>
+</head>
 <body>
-   <table width="30%" border=1 cellpadding="5" cellspacing="0" align="center">
-	<caption><h1>ѧԱ��</h1></caption>        
-	<tr><th colspan="3">ѧԱ������Ϣ</th><th colspan="2">�ɼ�</th></tr>
-	<tr><th>����</th><th>�Ա�</th><th>רҵ</th><th>�γ�</th><th>����</th></tr>
-                <tr align="center"><td>С��</td><td>��</td><td rowspan="2">�����</td><td rowspan="2">PHP����</td><td>86</td></tr>
-                <tr align="center"><td>СӰ</td><td>Ů</td><td>98</td></tr>
+  <h1>MCP 写操作：幂等键演示</h1>
+
+  <div class="card">
+    <h3>业务请求</h3>
+    <p>操作：退款</p>
+    <p>订单号：ORDER-123</p>
+    <p>退款金额：100 元</p>
+    <p>Idempotency-Key：
+      <span class="key" id="key"></span>
+    </p>
+    <button onclick="firstRequest()">首次退款（模拟超时）</button>
+    <button onclick="retryRequest()">重试退款</button>
+    <button onclick="resetDemo()">重置演示</button>
+  </div>
+
+  <div class="card">
+    <h3>执行状态</h3>
+    <p>实际退款次数：
+      <span class="count" id="count">0</span>
+    </p>
+    <p id="status">等待请求</p>
+  </div>
+
+  <div class="card">
+    <h3>执行日志</h3>
+    <div id="log">等待操作...</div>
+  </div>
+
+  <script>
+    // 模拟服务端保存的幂等记录
+    let records = new Map();
+    let refundCount = 0;
+    let hasRequested = false;
+
+    // 同一次业务操作始终使用相同的 Key
+    const idempotencyKey = "refund-8f72a91";
+    document.getElementById("key").textContent =
+      idempotencyKey;
+
+    function writeLog(message) {
+      const log = document.getElementById("log");
+      log.textContent += "\n" + message;
+    }
+
+    function updateCount() {
+      document.getElementById("count").textContent =
+        refundCount;
+    }
+
+    function firstRequest() {
+      if (hasRequested) {
+        writeLog("请使用重试按钮模拟重复请求。");
+        return;
+      }
+
+      hasRequested = true;
+      writeLog("① Agent 发起退款请求");
+      writeLog("② MCP 收到 Key：" + idempotencyKey);
+
+      // 模拟服务端执行退款并保存结果
+      refundCount++;
+      records.set(idempotencyKey, {
+        status: "SUCCESS",
+        result: "退款成功：100 元"
+      });
+
+      updateCount();
+      writeLog("③ ERP 已执行退款，结果已保存");
+      writeLog("④ 模拟网络超时：响应未能返回 Agent");
+
+      document.getElementById("status").textContent =
+        "请求超时，但服务端已成功退款";
+    }
+
+    function retryRequest() {
+      writeLog("① Agent 使用相同 Key 再次请求");
+
+      if (records.has(idempotencyKey)) {
+        const record = records.get(idempotencyKey);
+        writeLog("② 服务端发现该 Key 已存在");
+        writeLog("③ 不再执行退款，直接返回已保存结果");
+        writeLog("④ 返回：" + record.result);
+
+        document.getElementById("status").textContent =
+          "重试成功：返回原结果，没有重复退款";
+      } else {
+        writeLog("② 服务端未找到记录，可以进入首次执行流程");
+        document.getElementById("status").textContent =
+          "尚无执行记录，请点击首次退款";
+      }
+
+      updateCount();
+    }
+
+    function resetDemo() {
+      records = new Map();
+      refundCount = 0;
+      hasRequested = false;
+      updateCount();
+      document.getElementById("status").textContent =
+        "等待请求";
+      document.getElementById("log").textContent =
+        "演示已重置。";
+    }
+  </script>
 </body>
-   </table>
 </html>
-
-test,新增一行代码
-
-
-test yersyyrysyyadbjhb
-
-
-test: 新增一行测试代码
+```
