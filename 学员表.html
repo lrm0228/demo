@@ -2,159 +2,375 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MCP 幂等键机制演示</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 760px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #f5f7fa;
-      color: #263238;
-    }
-    h1 { text-align: center; }
-    .card {
-      background: white;
-      padding: 20px;
-      margin: 16px 0;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px #00000010;
-    }
-    .key {
-      color: #1565c0;
-      font-family: monospace;
-      word-break: break-all;
-    }
-    button {
-      padding: 10px 16px;
-      margin: 5px;
-      border: 0;
-      border-radius: 6px;
-      cursor: pointer;
-      background: #1565c0;
-      color: white;
-    }
-    button:disabled { background: #999; }
-    #log {
-      white-space: pre-wrap;
-      line-height: 1.8;
-      background: #17212b;
-      color: #d7fbe8;
-      padding: 16px;
-      border-radius: 8px;
-      min-height: 140px;
-    }
-    .count { font-size: 24px; font-weight: bold; }
-  </style>
+    <meta charset="UTF-8">
+    <title>生产级 MCP Server 安全治理实施指南</title>
+    <meta name="description" content="介绍生产级 MCP Server 的身份认证、权限控制、工具治理、超时处理、幂等机制和审计体系。">
 </head>
 <body>
-  <h1>MCP 写操作：幂等键演示</h1>
+<header>
+    <h1>生产级 MCP Server 安全治理实施指南</h1>
+    <p>文档编号：MCP-SEC-2026-001</p>
+    <p>版本：V2.1 | 分类：人工智能平台技术规范</p>
+    <p>关键词：MCP、Agent、OAuth 2.0、RBAC、Prompt Injection、幂等键、熔断</p>
+</header>
 
-  <div class="card">
-    <h3>业务请求</h3>
-    <p>操作：退款</p>
-    <p>订单号：ORDER-123</p>
-    <p>退款金额：100 元</p>
-    <p>Idempotency-Key：
-      <span class="key" id="key"></span>
+<nav>
+    <h2>目录</h2>
+    <ol>
+        <li><a href="#overview">建设背景与治理目标</a></li>
+        <li><a href="#auth">身份认证与授权</a></li>
+        <li><a href="#tools">工具注册与风险分级</a></li>
+        <li><a href="#validation">参数校验与输入安全</a></li>
+        <li><a href="#timeout">模型和工具超时治理</a></li>
+        <li><a href="#idempotency">写操作幂等性保障</a></li>
+        <li><a href="#injection">提示词注入与工具投毒</a></li>
+        <li><a href="#audit">审计与监控</a></li>
+        <li><a href="#incident">故障应急处理</a></li>
+    </ol>
+</nav>
+
+<main>
+<section id="overview">
+    <h2>第一章：建设背景与治理目标</h2>
+    <p>
+        Model Context Protocol，简称 MCP，是一种用于连接大语言模型应用、
+        Agent 与外部工具或数据源的协议。MCP Server 可以向客户端提供
+        Tools、Resources 和 Prompts 等能力，使模型能够通过标准化接口访问
+        企业内部系统。
     </p>
-    <button onclick="firstRequest()">首次退款（模拟超时）</button>
-    <button onclick="retryRequest()">重试退款</button>
-    <button onclick="resetDemo()">重置演示</button>
-  </div>
-
-  <div class="card">
-    <h3>执行状态</h3>
-    <p>实际退款次数：
-      <span class="count" id="count">0</span>
+    <p>
+        与传统 REST API 相比，MCP 的主要区别在于工具调用通常由模型根据
+        当前对话上下文动态选择。模型可能受到用户输入、检索文档、网页内容
+        或其他工具返回值的影响。因此，不能将模型自身的判断当作权限校验
+        或安全策略的替代品。
     </p>
-    <p id="status">等待请求</p>
-  </div>
+    <p>
+        本规范的建设目标包括：保证调用者身份可验证、工具权限可控制、
+        高危操作可确认、业务请求可追踪、故障能够恢复、敏感数据不会因
+        错误调用而泄露。所有安全策略必须在服务端执行，并且不能仅依赖
+        System Prompt 约束模型行为。
+    </p>
+    <h3>核心安全原则</h3>
+    <ul>
+        <li>最小权限：每个 Agent 只获得完成当前任务所需的最小权限。</li>
+        <li>默认拒绝：未明确授权的 Tool 调用必须拒绝。</li>
+        <li>纵深防御：认证、授权、参数校验、业务校验和审计相互配合。</li>
+        <li>失败安全：遇到不确定状态时，不得盲目重复执行敏感操作。</li>
+        <li>可审计性：每次调用均应具有可关联的请求标识和执行记录。</li>
+    </ul>
+</section>
 
-  <div class="card">
-    <h3>执行日志</h3>
-    <div id="log">等待操作...</div>
-  </div>
+<section id="auth">
+    <h2>第二章：身份认证与授权</h2>
+    <p>
+        远程 MCP Server 应通过安全传输协议保护通信，并根据客户端类型、
+        部署方式和信任边界选择合适的认证方案。常见方式包括 OAuth 2.0、
+        JWT、API Key 和双向 TLS。认证只用于确定调用者身份，并不意味着
+        调用者自动拥有全部工具的访问权限。
+    </p>
+    <h3>授权判断流程</h3>
+    <ol>
+        <li>验证访问令牌的签名、有效期、签发方和受众。</li>
+        <li>识别当前用户、Agent、租户及其所属角色。</li>
+        <li>检查调用者是否拥有目标 Tool 所需的权限 Scope。</li>
+        <li>检查业务数据是否属于当前租户及授权范围。</li>
+        <li>校验通过后，才允许进入实际业务执行逻辑。</li>
+    </ol>
+    <p>
+        例如，财务人员可以拥有 invoice:read 权限，但不一定拥有
+        invoice:delete 权限。即使模型选择调用 delete_invoice，服务端也
+        必须独立拒绝未经授权的请求。
+    </p>
+    <table border="1">
+        <caption>角色与工具权限矩阵</caption>
+        <thead>
+            <tr>
+                <th>角色</th>
+                <th>查询订单</th>
+                <th>创建订单</th>
+                <th>执行退款</th>
+                <th>删除订单</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>普通员工</td>
+                <td>允许</td>
+                <td>允许</td>
+                <td>拒绝</td>
+                <td>拒绝</td>
+            </tr>
+            <tr>
+                <td>订单管理员</td>
+                <td>允许</td>
+                <td>允许</td>
+                <td>需额外授权</td>
+                <td>需额外授权</td>
+            </tr>
+            <tr>
+                <td>财务审核员</td>
+                <td>按数据权限</td>
+                <td>拒绝</td>
+                <td>需审批</td>
+                <td>拒绝</td>
+            </tr>
+            <tr>
+                <td>系统管理员</td>
+                <td>按管理策略</td>
+                <td>按管理策略</td>
+                <td>按管理策略</td>
+                <td>按管理策略</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
 
-  <script>
-    // 模拟服务端保存的幂等记录
-    let records = new Map();
-    let refundCount = 0;
-    let hasRequested = false;
+<section id="tools">
+    <h2>第三章：工具注册与风险分级</h2>
+    <p>
+        MCP Server 应维护统一的工具注册表，对工具名称、描述、输入 Schema、
+        业务负责人、版本、风险等级和授权范围进行管理。生产环境不应允许
+        任意来源的工具未经审核就自动获得执行权限。
+    </p>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>风险等级</th>
+                <th>工具示例</th>
+                <th>安全要求</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>L0 只读</td>
+                <td>query_order、get_customer</td>
+                <td>身份校验、数据权限、参数校验</td>
+            </tr>
+            <tr>
+                <td>L1 普通写入</td>
+                <td>create_draft、update_note</td>
+                <td>业务校验、幂等控制、审计</td>
+            </tr>
+            <tr>
+                <td>L2 敏感操作</td>
+                <td>submit_payment、approve_invoice</td>
+                <td>强化授权、风险检查、必要时人工确认</td>
+            </tr>
+            <tr>
+                <td>L3 高危操作</td>
+                <td>delete_database、execute_shell</td>
+                <td>默认禁止或隔离运行、严格审批与审计</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        风险等级不能仅由工具名称决定，还应考虑实际副作用、数据敏感程度、
+        影响范围、是否可逆以及调用者的权限。对于修改账户余额、退款、
+        转账等操作，应结合金额、频率、目标账户和审批状态实施动态风险控制。
+    </p>
+</section>
 
-    // 同一次业务操作始终使用相同的 Key
-    const idempotencyKey = "refund-8f72a91";
-    document.getElementById("key").textContent =
-      idempotencyKey;
-
-    function writeLog(message) {
-      const log = document.getElementById("log");
-      log.textContent += "\n" + message;
+<section id="validation">
+    <h2>第四章：参数校验与输入安全</h2>
+    <p>
+        Tool 的 inputSchema 用于声明参数结构，但 Schema 校验并不能替代
+        完整的业务校验。服务端还需要检查字段长度、枚举范围、数值上下限、
+        URL 协议、文件路径和业务对象的归属关系。
+    </p>
+    <pre>
+{
+  "type": "object",
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
     }
+  },
+  "required": ["orderId"],
+  "additionalProperties": false
+}
+    </pre>
+    <p>
+        如果工具只接受订单号，就不能允许调用方额外提交任意 SQL、
+        文件路径或未声明字段。数据库操作应使用参数化查询；文件工具
+        应限制允许访问的目录；网络请求工具应限制目标域名并防止访问
+        内部网络地址。
+    </p>
+    <p>
+        校验顺序建议为：结构校验、类型校验、格式校验、权限校验、
+        业务规则校验、执行前风险检查。任何一步失败，都应拒绝执行并返回
+        不泄露内部实现细节的错误信息。
+    </p>
+</section>
 
-    function updateCount() {
-      document.getElementById("count").textContent =
-        refundCount;
-    }
+<section id="timeout">
+    <h2>第五章：模型和工具超时治理</h2>
+    <p>
+        模型超时通常意味着推理请求没有在规定时间内完成；工具超时则可能
+        是 MCP Server、下游业务服务、数据库或网络连接没有及时返回。
+        两者不能采用完全相同的恢复策略。
+    </p>
+    <p>
+        模型请求可以根据错误类型执行有限次数的重试、指数退避或备用模型
+        降级。对于不支持安全重试的工具写操作，不能因为请求超时就直接
+        再次执行。客户端没有收到响应，并不代表下游没有完成业务操作。
+    </p>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>场景</th>
+                <th>建议处理</th>
+                <th>禁止做法</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>模型推理超时</td>
+                <td>有限重试、退避、备用模型</td>
+                <td>无限重试</td>
+            </tr>
+            <tr>
+                <td>查询订单超时</td>
+                <td>有限重试或查询状态</td>
+                <td>忽略总请求时限</td>
+            </tr>
+            <tr>
+                <td>创建订单超时</td>
+                <td>使用同一幂等键重试或查询订单状态</td>
+                <td>重新生成 Key 并直接创建</td>
+            </tr>
+            <tr>
+                <td>退款结果未知</td>
+                <td>查询退款流水或业务状态</td>
+                <td>直接再次退款</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        超时配置应形成层级，例如数据库查询 5 秒、MCP 工具调用 15 秒、
+        单次模型调用 30 秒、Agent 总执行时间 90 秒。实际数值应根据业务
+        延迟分布、用户体验要求和下游 SLA 调整，并为上层清理和返回结果
+        预留时间。
+    </p>
+    <p>
+        如果某个服务持续超时，应通过熔断器减少无效请求，并根据业务要求
+        返回可恢复错误、切换备用服务或终止当前 Agent 任务。
+    </p>
+</section>
 
-    function firstRequest() {
-      if (hasRequested) {
-        writeLog("请使用重试按钮模拟重复请求。");
-        return;
-      }
+<section id="idempotency">
+    <h2>第六章：写操作幂等性保障</h2>
+    <p>
+        幂等键是用于识别同一业务操作的唯一标识。它主要解决一种问题：
+        下游已经完成写操作，但响应在网络中丢失，调用方误以为失败并再次
+        发起请求，从而造成重复创建、重复扣款或重复退款。
+    </p>
+    <p>
+        例如，Agent 调用 refund_order 时使用 Key=refund-2026-0001。
+        MCP Server 应在可靠存储中记录该 Key 对应的请求指纹、执行状态和
+        最终结果。重复请求到达时，服务端需要判断它是否属于同一业务请求，
+        并根据记录返回原结果、等待处理中操作完成，或拒绝不一致的重复请求。
+    </p>
+    <ol>
+        <li>客户端为同一次业务操作生成稳定的幂等键。</li>
+        <li>服务端以租户、业务类型和幂等键构造唯一作用域。</li>
+        <li>服务端原子地登记请求，防止并发请求同时通过检查。</li>
+        <li>执行业务操作，并可靠地记录成功、失败或处理中状态。</li>
+        <li>重复请求返回原有结果或当前状态，不重复执行副作用。</li>
+    </ol>
+    <p>
+        如果 Key 已经存在，但本次请求的订单号或退款金额与原请求不同，
+        服务端必须拒绝该请求，不能直接返回原结果并忽略参数差异。
+        幂等键应由可信业务层生成或校验，不能完全依赖模型自由生成。
+    </p>
+    <p>
+        幂等键也不能单独保证跨系统的绝对一次执行。如果 MCP Server 与 ERP
+        分属不同系统，还需要结合下游幂等接口、事务、业务唯一约束、
+        状态查询或可靠消息机制，处理跨系统执行和记录不一致的问题。
+    </p>
+</section>
 
-      hasRequested = true;
-      writeLog("① Agent 发起退款请求");
-      writeLog("② MCP 收到 Key：" + idempotencyKey);
+<section id="injection">
+    <h2>第七章：提示词注入与工具投毒</h2>
+    <p>
+        Prompt Injection 指恶意内容试图影响模型行为。攻击内容可能出现在
+        用户消息、网页、知识库文档或工具返回值中。Tool Poisoning 则可能
+        通过恶意或被篡改的工具描述诱导模型执行非预期行为。
+    </p>
+    <p>
+        例如，查询发票的工具返回一段文本，要求模型忽略原有任务并调用
+        转账工具。模型可能把这段数据错误地当作指令。正确的治理方式是将
+        外部内容作为不可信数据处理，并由服务端独立执行授权和风险校验。
+    </p>
+    <ul>
+        <li>对工具来源、发布者、版本和权限进行审核。</li>
+        <li>监测工具描述及输入 Schema 的异常变更。</li>
+        <li>对高风险 Tool 使用白名单和严格权限边界。</li>
+        <li>对工具输出进行大小限制、格式校验和敏感信息处理。</li>
+        <li>对转账、删除、退款等高危动作设置独立的审批机制。</li>
+    </ul>
+    <p>
+        提示词中的安全声明只能作为辅助措施。真正的安全边界必须由代码、
+        权限系统、网络隔离和业务服务共同保证。
+    </p>
+</section>
 
-      // 模拟服务端执行退款并保存结果
-      refundCount++;
-      records.set(idempotencyKey, {
-        status: "SUCCESS",
-        result: "退款成功：100 元"
-      });
+<section id="audit">
+    <h2>第八章：审计与监控</h2>
+    <p>
+        所有关键工具调用都应能够通过 traceId、requestId 或业务流水号
+        进行关联。审计事件应包括调用者、租户、Agent、MCP Server、工具名、
+        工具版本、风险等级、执行状态、耗时和触发的安全策略。
+    </p>
+    <p>
+        对请求参数和返回结果应采取必要的脱敏措施。密码、访问令牌、
+        私钥等凭证不得直接写入普通日志；涉及个人信息或财务数据的字段，
+        应遵守企业数据分类分级与保留期限要求。
+    </p>
+    <pre>
+{
+  "traceId": "trace-example-001",
+  "tenantId": "tenant-a",
+  "agentId": "finance-agent",
+  "toolName": "refund_order",
+  "riskLevel": "L2",
+  "status": "UNKNOWN",
+  "latencyMs": 15000,
+  "timestamp": "2026-10-12T09:30:00+08:00"
+}
+    </pre>
+    <p>
+        应监控超时率、错误率、重试次数、熔断次数、鉴权拒绝次数、
+        幂等冲突次数以及高危工具调用量。当异常指标超过阈值时，应通知
+        相关负责人，并保留必要的证据用于后续排查。
+    </p>
+</section>
 
-      updateCount();
-      writeLog("③ ERP 已执行退款，结果已保存");
-      writeLog("④ 模拟网络超时：响应未能返回 Agent");
+<section id="incident">
+    <h2>第九章：故障应急处理</h2>
+    <p>
+        当 MCP Server 出现大面积超时、疑似越权调用、工具定义被篡改或
+        敏感数据泄露时，应优先限制风险扩散，再恢复业务能力。
+    </p>
+    <ol>
+        <li>暂停相关高危 Tool 或撤销受影响的授权。</li>
+        <li>检查请求链路、审计事件和下游业务状态。</li>
+        <li>确认是否存在重复写入、未完成操作或数据泄露。</li>
+        <li>修复凭证、权限、网络规则或工具版本问题。</li>
+        <li>经过回归验证后逐步恢复流量。</li>
+        <li>记录根因、影响范围、修复动作和后续预防措施。</li>
+    </ol>
+    <p>
+        对结果未知的写操作，应优先通过业务流水和状态查询确认最终状态。
+        在无法确认下游是否执行成功时，不应通过盲目重试来恢复业务。
+    </p>
+</section>
+</main>
 
-      document.getElementById("status").textContent =
-        "请求超时，但服务端已成功退款";
-    }
-
-    function retryRequest() {
-      writeLog("① Agent 使用相同 Key 再次请求");
-
-      if (records.has(idempotencyKey)) {
-        const record = records.get(idempotencyKey);
-        writeLog("② 服务端发现该 Key 已存在");
-        writeLog("③ 不再执行退款，直接返回已保存结果");
-        writeLog("④ 返回：" + record.result);
-
-        document.getElementById("status").textContent =
-          "重试成功：返回原结果，没有重复退款";
-      } else {
-        writeLog("② 服务端未找到记录，可以进入首次执行流程");
-        document.getElementById("status").textContent =
-          "尚无执行记录，请点击首次退款";
-      }
-
-      updateCount();
-    }
-
-    function resetDemo() {
-      records = new Map();
-      refundCount = 0;
-      hasRequested = false;
-      updateCount();
-      document.getElementById("status").textContent =
-        "等待请求";
-      document.getElementById("log").textContent =
-        "演示已重置。";
-    }
-  </script>
+<footer>
+    <p>文档结束 | MCP Security Governance Guide | V2.1</p>
+</footer>
 </body>
 </html>
 ```
