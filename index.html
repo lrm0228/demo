@@ -1,10 +1,51 @@
-<html>
-<head><title>ƽ̨����ģ��</title></head>
-<frameset rows="220,*">
-<frame src="top.html"  name="top" scrolling="no"/>
-	<frameset cols="500,*">
-	<frame src="menu.html" name="menu" scrolling="no"/>
-	<frame src="main.html" name="main" noresize/>
-</frameset>
-</frameset>
-</html>
+
+import java.util.Scanner;
+
+public class Calculator {
+
+    public static double calculate(
+            double a, double b, String operator) {
+
+        switch (operator) {
+            case "+":
+                return a + b;
+            case "-":
+                return a - b;
+            case "*":
+                return a * b;
+            case "/":
+                if (b == 0) {
+                    throw new IllegalArgumentException(
+                        "除数不能为零"
+                    );
+                }
+                return a / b;
+            default:
+                throw new IllegalArgumentException(
+                    "不支持的运算符：" + operator
+                );
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("请输入第一个数字：");
+        double a = scanner.nextDouble();
+
+        System.out.print("请输入运算符（+、-、*、/）：");
+        String operator = scanner.next();
+
+        System.out.print("请输入第二个数字：");
+        double b = scanner.nextDouble();
+
+        try {
+            double result = calculate(a, b, operator);
+            System.out.println("计算结果：" + result);
+        } catch (IllegalArgumentException e) {
+            System.out.println("计算失败：" + e.getMessage());
+        } finally {
+            scanner.close();
+        }
+    }
+}
