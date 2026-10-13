@@ -1,231 +1,243 @@
-package main
 
-import (
-	"fmt"
-	"sort"
-	"strings"
-)
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
-type Student struct {
-	ID     string
-	Name   string
-	Age    int
-	Major  string
-	Score  float64
-}
+public class LibraryManagementSystem {
 
-type StudentManager struct {
-	students map[string]Student
-}
+    static class Book {
+        private final String id;
+        private String title;
+        private String author;
+        private boolean borrowed;
 
-func NewStudentManager() *StudentManager {
-	return &StudentManager{
-		students: make(map[string]Student),
-	}
-}
+        public Book(String id, String title, String author) {
+            this.id = id;
+            this.title = title;
+            this.author = author;
+            this.borrowed = false;
+        }
 
-func (m *StudentManager) AddStudent(s Student) error {
-	if strings.TrimSpace(s.ID) == "" {
-		return fmt.Errorf("学号不能为空")
-	}
-	if strings.TrimSpace(s.Name) == "" {
-		return fmt.Errorf("姓名不能为空")
-	}
-	if s.Age < 1 || s.Age > 120 {
-		return fmt.Errorf("年龄必须在 1 到 120 之间")
-	}
-	if s.Score < 0 || s.Score > 100 {
-		return fmt.Errorf("成绩必须在 0 到 100 之间")
-	}
-	if _, exists := m.students[s.ID]; exists {
-		return fmt.Errorf("学号 %s 已存在", s.ID)
-	}
+        public String getId() {
+            return id;
+        }
 
-	m.students[s.ID] = s
-	return nil
-}
+        public String getTitle() {
+            return title;
+        }
 
-func (m *StudentManager) FindStudent(id string) (Student, bool) {
-	s, exists := m.students[id]
-	return s, exists
-}
+        public String getAuthor() {
+            return author;
+        }
 
-func (m *StudentManager) DeleteStudent(id string) error {
-	if _, exists := m.students[id]; !exists {
-		return fmt.Errorf("未找到学号为 %s 的学生", id)
-	}
+        public boolean isBorrowed() {
+            return borrowed;
+        }
 
-	delete(m.students, id)
-	return nil
-}
+        public void setTitle(String title) {
+            this.title = title;
+        }
 
-func (m *StudentManager) ListStudents() []Student {
-	result := make([]Student, 0, len(m.students))
+        public void setAuthor(String author) {
+            this.author = author;
+        }
 
-	for _, student := range m.students {
-		result = append(result, student)
-	}
+        public void borrow() {
+            if (borrowed) {
+                throw new IllegalStateException("该图书已经被借出");
+            }
+            borrowed = true;
+        }
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ID < result[j].ID
-	})
+        public void returnBook() {
+            if (!borrowed) {
+                throw new IllegalStateException("该图书当前未被借出");
+            }
+            borrowed = false;
+        }
 
-	return result
-}
+        @Override
+        public String toString() {
+            return "编号：" + id
+                    + "，书名：" + title
+                    + "，作者：" + author
+                    + "，状态：" + (borrowed ? "已借出" : "在馆");
+        }
+    }
 
-func (m *StudentManager) SearchByName(keyword string) []Student {
-	var result []Student
-	keyword = strings.ToLower(keyword)
+    static class Library {
+        private final List<Book> books = new ArrayList<>();
 
-	for _, student := range m.students {
-		if strings.Contains(strings.ToLower(student.Name), keyword) {
-			result = append(result, student)
-		}
-	}
+        public void addBook(Book book) {
+            if (findById(book.getId()) != null) {
+                throw new IllegalArgumentException("图书编号已存在");
+            }
+            books.add(book);
+            System.out.println("图书添加成功：" + book.getTitle());
+        }
 
-	return result
-}
+        public Book findById(String id) {
+            for (Book book : books) {
+                if (book.getId().equals(id)) {
+                    return book;
+                }
+            }
+            return null;
+        }
 
-func (m *StudentManager) ShowStatistics() {
-	students := m.ListStudents()
+        public void searchByTitle(String keyword) {
+            boolean found = false;
 
-	if len(students) == 0 {
-		fmt.Println("暂无学生数据")
-		return
-	}
+            for (Book book : books) {
+                if (book.getTitle().toLowerCase()
+                        .contains(keyword.toLowerCase())) {
+                    System.out.println(book);
+                    found = true;
+                }
+            }
 
-	var total float64
-	var highest, lowest = students[0].Score, students[0].Score
-	passCount := 0
+            if (!found) {
+                System.out.println("没有找到匹配的图书");
+            }
+        }
 
-	for _, student := range students {
-		total += student.Score
+        public void borrowBook(String id) {
+            Book book = findById(id);
 
-		if student.Score > highest {
-			highest = student.Score
-		}
-		if student.Score < lowest {
-			lowest = student.Score
-		}
-		if student.Score >= 60 {
-			passCount++
-		}
-	}
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
+            }
 
-	average := total / float64(len(students))
+            try {
+                book.borrow();
+                System.out.println("借阅成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("借阅失败：" + e.getMessage());
+            }
+        }
 
-	fmt.Printf("学生总数: %d\n", len(students))
-	fmt.Printf("平均成绩: %.2f\n", average)
-	fmt.Printf("最高成绩: %.2f\n", highest)
-	fmt.Printf("最低成绩: %.2f\n", lowest)
-	fmt.Printf("及格人数: %d\n", passCount)
-	fmt.Printf("及格率: %.2f%%\n", float64(passCount)/float64(len(students))*100)
-}
+        public void returnBook(String id) {
+            Book book = findById(id);
 
-func main() {
-	manager := NewStudentManager()
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
+            }
 
-	_ = manager.AddStudent(Student{
-		ID: "S001", Name: "张三", Age: 20, Major: "计算机科学", Score: 88.5,
-	})
-	_ = manager.AddStudent(Student{
-		ID: "S002", Name: "李四", Age: 21, Major: "软件工程", Score: 76.0,
-	})
-	_ = manager.AddStudent(Student{
-		ID: "S003", Name: "王五", Age: 19, Major: "人工智能", Score: 92.0,
-	})
+            try {
+                book.returnBook();
+                System.out.println("归还成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("归还失败：" + e.getMessage());
+            }
+        }
 
-	for {
-		fmt.Println("\n=== 学生信息管理系统 ===")
-		fmt.Println("1. 查看所有学生")
-		fmt.Println("2. 按学号查询")
-		fmt.Println("3. 添加学生")
-		fmt.Println("4. 删除学生")
-		fmt.Println("5. 按姓名搜索")
-		fmt.Println("6. 查看成绩统计")
-		fmt.Println("0. 退出系统")
-		fmt.Print("请选择功能: ")
+        public void showAllBooks() {
+            if (books.isEmpty()) {
+                System.out.println("当前没有图书");
+                return;
+            }
 
-		var choice string
-		if _, err := fmt.Scan(&choice); err != nil {
-			fmt.Println("输入错误:", err)
-			return
-		}
+            System.out.println("===== 图书库存 =====");
+            for (Book book : books) {
+                System.out.println(book);
+            }
+        }
 
-		switch choice {
-		case "1":
-			students := manager.ListStudents()
-			for _, s := range students {
-				fmt.Printf("学号: %s | 姓名: %s | 年龄: %d | 专业: %s | 成绩: %.2f\n",
-					s.ID, s.Name, s.Age, s.Major, s.Score)
-			}
+        public void showStatistics() {
+            int borrowedCount = 0;
 
-		case "2":
-			var id string
-			fmt.Print("请输入学号: ")
-			fmt.Scan(&id)
+            for (Book book : books) {
+                if (book.isBorrowed()) {
+                    borrowedCount++;
+                }
+            }
 
-			if student, exists := manager.FindStudent(id); exists {
-				fmt.Printf("查询结果: %+v\n", student)
-			} else {
-				fmt.Println("未找到该学生")
-			}
+            System.out.println("图书总数：" + books.size());
+            System.out.println("已借出：" + borrowedCount);
+            System.out.println("在馆数量：" + (books.size() - borrowedCount));
+        }
+    }
 
-		case "3":
-			var s Student
+    public static void main(String[] args) {
+        Library library = new Library();
+        Scanner scanner = new Scanner(System.in);
 
-			fmt.Print("学号: ")
-			fmt.Scan(&s.ID)
-			fmt.Print("姓名: ")
-			fmt.Scan(&s.Name)
-			fmt.Print("年龄: ")
-			fmt.Scan(&s.Age)
-			fmt.Print("专业: ")
-			fmt.Scan(&s.Major)
-			fmt.Print("成绩: ")
-			fmt.Scan(&s.Score)
+        library.addBook(new Book("B001", "Java编程思想", "Bruce Eckel"));
+        library.addBook(new Book("B002", "深入理解Java虚拟机", "周志明"));
+        library.addBook(new Book("B003", "设计模式", "Erich Gamma"));
 
-			if err := manager.AddStudent(s); err != nil {
-				fmt.Println("添加失败:", err)
-			} else {
-				fmt.Println("学生添加成功")
-			}
+        boolean running = true;
 
-		case "4":
-			var id string
-			fmt.Print("请输入要删除的学号: ")
-			fmt.Scan(&id)
+        while (running) {
+            System.out.println("\n===== 图书管理系统 =====");
+            System.out.println("1. 添加图书");
+            System.out.println("2. 查询图书");
+            System.out.println("3. 借阅图书");
+            System.out.println("4. 归还图书");
+            System.out.println("5. 查看所有图书");
+            System.out.println("6. 查看库存统计");
+            System.out.println("0. 退出系统");
+            System.out.print("请选择操作：");
 
-			if err := manager.DeleteStudent(id); err != nil {
-				fmt.Println("删除失败:", err)
-			} else {
-				fmt.Println("删除成功")
-			}
+            String choice = scanner.nextLine().trim();
 
-		case "5":
-			var keyword string
-			fmt.Print("请输入姓名关键词: ")
-			fmt.Scan(&keyword)
+            try {
+                switch (choice) {
+                    case "1":
+                        System.out.print("请输入图书编号：");
+                        String id = scanner.nextLine().trim();
+                        System.out.print("请输入书名：");
+                        String title = scanner.nextLine().trim();
+                        System.out.print("请输入作者：");
+                        String author = scanner.nextLine().trim();
 
-			results := manager.SearchByName(keyword)
-			if len(results) == 0 {
-				fmt.Println("没有找到匹配的学生")
-				continue
-			}
+                        if (id.isEmpty() || title.isEmpty()
+                                || author.isEmpty()) {
+                            System.out.println("图书信息不能为空");
+                            break;
+                        }
 
-			for _, s := range results {
-				fmt.Printf("%s - %s - 成绩: %.2f\n", s.ID, s.Name, s.Score)
-			}
+                        library.addBook(new Book(id, title, author));
+                        break;
 
-		case "6":
-			manager.ShowStatistics()
+                    case "2":
+                        System.out.print("请输入书名关键词：");
+                        library.searchByTitle(scanner.nextLine().trim());
+                        break;
 
-		case "0":
-			fmt.Println("系统已退出")
-			return
+                    case "3":
+                        System.out.print("请输入图书编号：");
+                        library.borrowBook(scanner.nextLine().trim());
+                        break;
 
-		default:
-			fmt.Println("无效选项，请重新输入")
-		}
-	}
+                    case "4":
+                        System.out.print("请输入图书编号：");
+                        library.returnBook(scanner.nextLine().trim());
+                        break;
+
+                    case "5":
+                        library.showAllBooks();
+                        break;
+
+                    case "6":
+                        library.showStatistics();
+                        break;
+
+                    case "0":
+                        running = false;
+                        System.out.println("系统已退出");
+                        break;
+
+                    default:
+                        System.out.println("无效选项，请重新输入");
+                }
+            } catch (IllegalArgumentException e) {
+                System.out.println("操作失败：" + e.getMessage());
+            }
+        }
+
+        scanner.close();
+    }
 }
