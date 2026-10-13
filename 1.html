@@ -1,312 +1,55 @@
+package main
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import (
+	"fmt"
+)
 
-public class BankAccountSystem {
+func calculate(a float64, operator string, b float64) (float64, error) {
+	switch operator {
+	case "+":
+		return a + b, nil
+	case "-":
+		return a - b, nil
+	case "*":
+		return a * b, nil
+	case "/":
+		if b == 0 {
+			return 0, fmt.Errorf("除数不能为零")
+		}
+		return a / b, nil
+	default:
+		return 0, fmt.Errorf("不支持的运算符: %s", operator)
+	}
+}
 
-    static class Transaction {
-        private final String type;
-        private final double amount;
-        private final String description;
-        private final LocalDateTime time;
+func main() {
+	var a, b float64
+	var operator string
 
-        public Transaction(String type, double amount, String description) {
-            this.type = type;
-            this.amount = amount;
-            this.description = description;
-            this.time = LocalDateTime.now();
-        }
+	fmt.Println("=== Go 计算器 ===")
+	fmt.Print("请输入第一个数字: ")
+	if _, err := fmt.Scan(&a); err != nil {
+		fmt.Println("输入错误:", err)
+		return
+	}
 
-        @Override
-        public String toString() {
-            return String.format(
-                    "%s | 类型：%s | 金额：%.2f | 说明：%s",
-                    time.format(DateTimeFormatter.ofPattern(
-                            "yyyy-MM-dd HH:mm:ss")),
-                    type, amount, description
-            );
-        }
-    }
+	fmt.Print("请输入运算符 (+ - * /): ")
+	if _, err := fmt.Scan(&operator); err != nil {
+		fmt.Println("输入错误:", err)
+		return
+	}
 
-    static class BankAccount {
-        private final String accountId;
-        private final String owner;
-        private double balance;
-        private final List<Transaction> transactions = new ArrayList<>();
+	fmt.Print("请输入第二个数字: ")
+	if _, err := fmt.Scan(&b); err != nil {
+		fmt.Println("输入错误:", err)
+		return
+	}
 
-        public BankAccount(String accountId, String owner,
-                           double initialBalance) {
-            if (accountId == null || accountId.trim().isEmpty()) {
-                throw new IllegalArgumentException("账户编号不能为空");
-            }
-            if (owner == null || owner.trim().isEmpty()) {
-                throw new IllegalArgumentException("账户姓名不能为空");
-            }
-            if (initialBalance < 0) {
-                throw new IllegalArgumentException("初始余额不能为负数");
-            }
+	result, err := calculate(a, operator, b)
+	if err != nil {
+		fmt.Println("计算失败:", err)
+		return
+	}
 
-            this.accountId = accountId;
-            this.owner = owner;
-            this.balance = initialBalance;
-
-            if (initialBalance > 0) {
-                transactions.add(new Transaction(
-                        "开户存入", initialBalance, "账户初始化"));
-            }
-        }
-
-        public String getAccountId() {
-            return accountId;
-        }
-
-        public String getOwner() {
-            return owner;
-        }
-
-        public double getBalance() {
-            return balance;
-        }
-
-        public void deposit(double amount) {
-            validateAmount(amount);
-            balance += amount;
-            transactions.add(new Transaction(
-                    "存款", amount, "账户存款"));
-        }
-
-        public void withdraw(double amount) {
-            validateAmount(amount);
-
-            if (amount > balance) {
-                throw new IllegalArgumentException("余额不足");
-            }
-
-            balance -= amount;
-            transactions.add(new Transaction(
-                    "取款", amount, "账户取款"));
-        }
-
-        public void transferTo(BankAccount target, double amount) {
-            if (target == null) {
-                throw new IllegalArgumentException("目标账户不存在");
-            }
-            if (target == this) {
-                throw new IllegalArgumentException("不能向自己转账");
-            }
-
-            validateAmount(amount);
-
-            if (amount > balance) {
-                throw new IllegalArgumentException("余额不足，转账失败");
-            }
-
-            balance -= amount;
-            target.balance += amount;
-
-            transactions.add(new Transaction(
-                    "转出", amount, "转账至账户 " + target.accountId));
-            target.transactions.add(new Transaction(
-                    "转入", amount, "来自账户 " + accountId));
-        }
-
-        private void validateAmount(double amount) {
-            if (!Double.isFinite(amount) || amount <= 0) {
-                throw new IllegalArgumentException("金额必须是大于零的有效数字");
-            }
-        }
-
-        public void showTransactions() {
-            System.out.println("===== 账户交易记录 =====");
-
-            if (transactions.isEmpty()) {
-                System.out.println("暂无交易记录");
-                return;
-            }
-
-            for (Transaction transaction : transactions) {
-                System.out.println(transaction);
-            }
-        }
-
-        public void showDetails() {
-            System.out.println("账户编号：" + accountId);
-            System.out.println("账户姓名：" + owner);
-            System.out.printf("当前余额：%.2f%n", balance);
-        }
-    }
-
-    static class BankService {
-        private final Map<String, BankAccount> accounts =
-                new LinkedHashMap<>();
-
-        public void openAccount(String id, String owner, double initial) {
-            if (accounts.containsKey(id)) {
-                throw new IllegalArgumentException("账户编号已存在");
-            }
-
-            BankAccount account = new BankAccount(id, owner, initial);
-            accounts.put(id, account);
-            System.out.println("开户成功");
-        }
-
-        public BankAccount findAccount(String id) {
-            return accounts.get(id);
-        }
-
-        public void deposit(String id, double amount) {
-            BankAccount account = requireAccount(id);
-            account.deposit(amount);
-            System.out.println("存款成功");
-        }
-
-        public void withdraw(String id, double amount) {
-            BankAccount account = requireAccount(id);
-            account.withdraw(amount);
-            System.out.println("取款成功");
-        }
-
-        public void transfer(String fromId, String toId, double amount) {
-            BankAccount from = requireAccount(fromId);
-            BankAccount to = requireAccount(toId);
-
-            from.transferTo(to, amount);
-            System.out.println("转账成功");
-        }
-
-        private BankAccount requireAccount(String id) {
-            BankAccount account = findAccount(id);
-
-            if (account == null) {
-                throw new IllegalArgumentException("账户不存在：" + id);
-            }
-
-            return account;
-        }
-
-        public void listAccounts() {
-            if (accounts.isEmpty()) {
-                System.out.println("暂无账户");
-                return;
-            }
-
-            for (BankAccount account : accounts.values()) {
-                account.showDetails();
-                System.out.println("--------------------");
-            }
-        }
-    }
-
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        BankService service = new BankService();
-
-        service.openAccount("10001", "张三", 5000);
-        service.openAccount("10002", "李四", 3000);
-
-        while (true) {
-            System.out.println("\n===== 银行账户管理系统 =====");
-            System.out.println("1. 开户");
-            System.out.println("2. 存款");
-            System.out.println("3. 取款");
-            System.out.println("4. 转账");
-            System.out.println("5. 查询账户");
-            System.out.println("6. 查看所有账户");
-            System.out.println("7. 查看交易记录");
-            System.out.println("0. 退出系统");
-            System.out.print("请选择操作：");
-
-            String choice = scanner.nextLine().trim();
-
-            try {
-                switch (choice) {
-                    case "1":
-                        System.out.print("账户编号：");
-                        String id = scanner.nextLine().trim();
-                        System.out.print("账户姓名：");
-                        String owner = scanner.nextLine().trim();
-                        System.out.print("初始存款：");
-                        double initial = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.openAccount(id, owner, initial);
-                        break;
-
-                    case "2":
-                        System.out.print("账户编号：");
-                        String depositId = scanner.nextLine().trim();
-                        System.out.print("存款金额：");
-                        double depositAmount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.deposit(depositId, depositAmount);
-                        break;
-
-                    case "3":
-                        System.out.print("账户编号：");
-                        String withdrawId = scanner.nextLine().trim();
-                        System.out.print("取款金额：");
-                        double withdrawAmount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.withdraw(withdrawId, withdrawAmount);
-                        break;
-
-                    case "4":
-                        System.out.print("转出账户：");
-                        String fromId = scanner.nextLine().trim();
-                        System.out.print("转入账户：");
-                        String toId = scanner.nextLine().trim();
-                        System.out.print("转账金额：");
-                        double amount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.transfer(fromId, toId, amount);
-                        break;
-
-                    case "5":
-                        System.out.print("账户编号：");
-                        BankAccount account = service.findAccount(
-                                scanner.nextLine().trim());
-
-                        if (account == null) {
-                            System.out.println("账户不存在");
-                        } else {
-                            account.showDetails();
-                        }
-                        break;
-
-                    case "6":
-                        service.listAccounts();
-                        break;
-
-                    case "7":
-                        BankAccount historyAccount = service.findAccount(
-                                scanner.nextLine().trim());
-
-                        if (historyAccount == null) {
-                            System.out.println("账户不存在");
-                        } else {
-                            historyAccount.showTransactions();
-                        }
-                        break;
-
-                    case "0":
-                        scanner.close();
-                        System.out.println("系统已退出");
-                        return;
-
-                    default:
-                        System.out.println("无效选项，请重新输入");
-                }
-            } catch (IllegalArgumentException e) {
-                System.out.println("操作失败：" + e.getMessage());
-            }
-        }
-    }
+	fmt.Printf("计算结果: %.2f %s %.2f = %.2f\n", a, operator, b, result)
 }
