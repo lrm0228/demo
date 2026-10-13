@@ -145,19 +145,6 @@ public class LibraryManagementSystem {
             }
         }
 
-        public void showStatistics() {
-            int borrowedCount = 0;
-
-            for (Book book : books) {
-                if (book.isBorrowed()) {
-                    borrowedCount++;
-                }
-            }
-
-            System.out.println("图书总数：" + books.size());
-            System.out.println("已借出：" + borrowedCount);
-            System.out.println("在馆数量：" + (books.size() - borrowedCount));
-        }
     }
 
     public static void main(String[] args) {
