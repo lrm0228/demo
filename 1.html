@@ -62,40 +62,6 @@ public class LibraryManagementSystem {
         System.out.println("新增图书成功：" + book.getTitle());
     }
 
-    /**
-     * 删除图书
-     */
-    public boolean removeBook(String bookId) {
-        Book book = books.get(bookId);
-
-        if (book == null) {
-            System.out.println("图书不存在：" + bookId);
-            return false;
-        }
-
-        if (book.getAvailableCount() != book.getTotalCount()) {
-            System.out.println("该图书仍有未归还记录，不能删除。");
-            return false;
-        }
-
-        books.remove(bookId);
-        System.out.println("删除图书成功：" + book.getTitle());
-        return true;
-    }
-
-    /**
-     * 注册读者
-     */
-    public void addReader(Reader reader) {
-        Objects.requireNonNull(reader, "读者不能为空");
-
-        if (readers.containsKey(reader.getId())) {
-            throw new IllegalArgumentException("读者编号已存在：" + reader.getId());
-        }
-
-        readers.put(reader.getId(), reader);
-        System.out.println("读者注册成功：" + reader.getName());
-    }
 
     /**
      * 借阅图书
