@@ -1,226 +1,183 @@
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Scanner;
 
-public class BankAccountSystem {
+public class LibraryManagementSystem {
 
-    static class Transaction {
-        private final String type;
-        private final double amount;
-        private final String description;
-        private final LocalDateTime time;
+    static class Book {
+        private final String id;
+        private String title;
+        private String author;
+        private boolean borrowed;
 
-        public Transaction(String type, double amount, String description) {
-            this.type = type;
-            this.amount = amount;
-            this.description = description;
-            this.time = LocalDateTime.now();
+        public Book(String id, String title, String author) {
+            this.id = id;
+            this.title = title;
+            this.author = author;
+            this.borrowed = false;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getAuthor() {
+            return author;
+        }
+
+        public boolean isBorrowed() {
+            return borrowed;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public void setAuthor(String author) {
+            this.author = author;
+        }
+
+        public void borrow() {
+            if (borrowed) {
+                throw new IllegalStateException("该图书已经被借出");
+            }
+            borrowed = true;
+        }
+
+        public void returnBook() {
+            if (!borrowed) {
+                throw new IllegalStateException("该图书当前未被借出");
+            }
+            borrowed = false;
         }
 
         @Override
         public String toString() {
-            return String.format(
-                    "%s | 类型：%s | 金额：%.2f | 说明：%s",
-                    time.format(DateTimeFormatter.ofPattern(
-                            "yyyy-MM-dd HH:mm:ss")),
-                    type, amount, description
-            );
+            return "编号：" + id
+                    + "，书名：" + title
+                    + "，作者：" + author
+                    + "，状态：" + (borrowed ? "已借出" : "在馆");
         }
     }
 
+    static class Library {
+        private final List<Book> books = new ArrayList<>();
 
-
-    // 123
-    static class BankAccount {
-        private final String accountId;
-        private final String owner;
-        private double balance;
-        private final List<Transaction> transactions = new ArrayList<>();
-
-        public BankAccount(String accountId, String owner,
-                           double initialBalance) {
-            if (accountId == null || accountId.trim().isEmpty()) {
-                throw new IllegalArgumentException("账户编号不能为空");
+        public void addBook(Book book) {
+            if (findById(book.getId()) != null) {
+                throw new IllegalArgumentException("图书编号已存在");
             }
-            if (owner == null || owner.trim().isEmpty()) {
-                throw new IllegalArgumentException("账户姓名不能为空");
+            books.add(book);
+            System.out.println("图书添加成功：" + book.getTitle());
+        }
+
+        public Book findById(String id) {
+            for (Book book : books) {
+                if (book.getId().equals(id)) {
+                    return book;
+                }
             }
-            if (initialBalance < 0) {
-                throw new IllegalArgumentException("初始余额不能为负数");
+            return null;
+        }
+
+        public void searchByTitle(String keyword) {
+            boolean found = false;
+
+            for (Book book : books) {
+                if (book.getTitle().toLowerCase()
+                        .contains(keyword.toLowerCase())) {
+                    System.out.println(book);
+                    found = true;
+                }
             }
 
-            this.accountId = accountId;
-            this.owner = owner;
-            this.balance = initialBalance;
-
-            if (initialBalance > 0) {
-                transactions.add(new Transaction(
-                        "开户存入", initialBalance, "账户初始化"));
+            if (!found) {
+                System.out.println("没有找到匹配的图书");
             }
         }
 
-        public String getAccountId() {
-            return accountId;
-        }
+        public void borrowBook(String id) {
+            Book book = findById(id);
 
-        public String getOwner() {
-            return owner;
-        }
-
-        public double getBalance() {
-            return balance;
-        }
-
-        public void deposit(double amount) {
-            validateAmount(amount);
-            balance += amount;
-            transactions.add(new Transaction(
-                    "存款", amount, "账户存款"));
-        }
-
-        public void withdraw(double amount) {
-            validateAmount(amount);
-
-            if (amount > balance) {
-                throw new IllegalArgumentException("余额不足");
-            }
-
-            balance -= amount;
-            transactions.add(new Transaction(
-                    "取款", amount, "账户取款"));
-        }
-
-        public void transferTo(BankAccount target, double amount) {
-            if (target == null) {
-                throw new IllegalArgumentException("目标账户不存在");
-            }
-            if (target == this) {
-                throw new IllegalArgumentException("不能向自己转账");
-            }
-
-            validateAmount(amount);
-
-            if (amount > balance) {
-                throw new IllegalArgumentException("余额不足，转账失败");
-            }
-
-            balance -= amount;
-            target.balance += amount;
-
-            transactions.add(new Transaction(
-                    "转出", amount, "转账至账户 " + target.accountId));
-            target.transactions.add(new Transaction(
-                    "转入", amount, "来自账户 " + accountId));
-        }
-
-        <!-- private void validateAmount(double amount) {
-            if (!Double.isFinite(amount) || amount <= 0) {
-                throw new IllegalArgumentException("金额必须是大于零的有效数字");
-            }
-        }
-
-        public void showTransactions() {
-            System.out.println("===== 账户交易记录 =====");
-
-            if (transactions.isEmpty()) {
-                System.out.println("暂无交易记录");
+            if (book == null) {
+                System.out.println("图书不存在");
                 return;
             }
 
-            for (Transaction transaction : transactions) {
-                System.out.println(transaction);
+            try {
+                book.borrow();
+                System.out.println("借阅成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("借阅失败：" + e.getMessage());
             }
-        } -->
-
-        public void showDetails() {
-            System.out.println("账户编号：" + accountId);
-            System.out.println("账户姓名：" + owner);
-            System.out.printf("当前余额：%.2f%n", balance);
-        }
-    }
-
-    static class BankService {
-        private final Map<String, BankAccount> accounts =
-                new LinkedHashMap<>();
-
-        public void openAccount(String id, String owner, double initial) {
-            if (accounts.containsKey(id)) {
-                throw new IllegalArgumentException("账户编号已存在");
-            }
-
-            BankAccount account = new BankAccount(id, owner, initial);
-            accounts.put(id, account);
-            System.out.println("开户成功");
         }
 
-        public BankAccount findAccount(String id) {
-            return accounts.get(id);
-        }
+        public void returnBook(String id) {
+            Book book = findById(id);
 
-        public void deposit(String id, double amount) {
-            BankAccount account = requireAccount(id);
-            account.deposit(amount);
-            System.out.println("存款成功");
-        }
-
-        public void withdraw(String id, double amount) {
-            BankAccount account = requireAccount(id);
-            account.withdraw(amount);
-            System.out.println("取款成功");
-        }
-
-        public void transfer(String fromId, String toId, double amount) {
-            BankAccount from = requireAccount(fromId);
-            BankAccount to = requireAccount(toId);
-
-            from.transferTo(to, amount);
-            System.out.println("转账成功");
-        }
-
-        private BankAccount requireAccount(String id) {
-            BankAccount account = findAccount(id);
-
-            if (account == null) {
-                throw new IllegalArgumentException("账户不存在：" + id);
-            }
-
-            return account;
-        }
-
-        public void listAccounts() {
-            if (accounts.isEmpty()) {
-                System.out.println("暂无账户");
+            if (book == null) {
+                System.out.println("图书不存在");
                 return;
             }
 
-            for (BankAccount account : accounts.values()) {
-                account.showDetails();
-                System.out.println("--------------------");
+            try {
+                book.returnBook();
+                System.out.println("归还成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("归还失败：" + e.getMessage());
             }
+        }
+
+        public void showAllBooks() {
+            if (books.isEmpty()) {
+                System.out.println("当前没有图书");
+                return;
+            }
+
+            System.out.println("===== 图书库存 =====");
+            for (Book book : books) {
+                System.out.println(book);
+            }
+        }
+
+        public void showStatistics() {
+            int borrowedCount = 0;
+
+            for (Book book : books) {
+                if (book.isBorrowed()) {
+                    borrowedCount++;
+                }
+            }
+
+            System.out.println("图书总数：" + books.size());
+            System.out.println("已借出：" + borrowedCount);
+            System.out.println("在馆数量：" + (books.size() - borrowedCount));
         }
     }
 
     public static void main(String[] args) {
+        Library library = new Library();
         Scanner scanner = new Scanner(System.in);
-        BankService service = new BankService();
 
-        service.openAccount("10001", "张三", 5000);
-        service.openAccount("10002", "李四", 3000);
+        library.addBook(new Book("B001", "Java编程思想", "Bruce Eckel"));
+        library.addBook(new Book("B002", "深入理解Java虚拟机", "周志明"));
+        library.addBook(new Book("B003", "设计模式", "Erich Gamma"));
 
-        while (true) {
-            System.out.println("\n===== 银行账户管理系统 =====");
-            System.out.println("1. 开户");
-            System.out.println("2. 存款");
-            System.out.println("3. 取款");
-            System.out.println("4. 转账");
-            System.out.println("5. 查询账户");
-            System.out.println("6. 查看所有账户");
-            System.out.println("7. 查看交易记录");
+        boolean running = true;
+
+        while (running) {
+            System.out.println("\n===== 图书管理系统 =====");
+            System.out.println("1. 添加图书");
+            System.out.println("2. 查询图书");
+            System.out.println("3. 借阅图书");
+            System.out.println("4. 归还图书");
+            System.out.println("5. 查看所有图书");
+            System.out.println("6. 查看库存统计");
             System.out.println("0. 退出系统");
             System.out.print("请选择操作：");
 
@@ -229,81 +186,49 @@ public class BankAccountSystem {
             try {
                 switch (choice) {
                     case "1":
-                        System.out.print("账户编号：");
+                        System.out.print("请输入图书编号：");
                         String id = scanner.nextLine().trim();
-                        System.out.print("账户姓名：");
-                        String owner = scanner.nextLine().trim();
-                        System.out.print("初始存款：");
-                        double initial = Double.parseDouble(
-                                scanner.nextLine().trim());
+                        System.out.print("请输入书名：");
+                        String title = scanner.nextLine().trim();
+                        System.out.print("请输入作者：");
+                        String author = scanner.nextLine().trim();
 
-                        service.openAccount(id, owner, initial);
+                        if (id.isEmpty() || title.isEmpty()
+                                || author.isEmpty()) {
+                            System.out.println("图书信息不能为空");
+                            break;
+                        }
+
+                        library.addBook(new Book(id, title, author));
                         break;
 
                     case "2":
-                        System.out.print("账户编号：");
-                        String depositId = scanner.nextLine().trim();
-                        System.out.print("存款金额：");
-                        double depositAmount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.deposit(depositId, depositAmount);
+                        System.out.print("请输入书名关键词：");
+                        library.searchByTitle(scanner.nextLine().trim());
                         break;
 
                     case "3":
-                        System.out.print("账户编号：");
-                        String withdrawId = scanner.nextLine().trim();
-                        System.out.print("取款金额：");
-                        double withdrawAmount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.withdraw(withdrawId, withdrawAmount);
+                        System.out.print("请输入图书编号：");
+                        library.borrowBook(scanner.nextLine().trim());
                         break;
 
                     case "4":
-                        System.out.print("转出账户：");
-                        String fromId = scanner.nextLine().trim();
-                        System.out.print("转入账户：");
-                        String toId = scanner.nextLine().trim();
-                        System.out.print("转账金额：");
-                        double amount = Double.parseDouble(
-                                scanner.nextLine().trim());
-
-                        service.transfer(fromId, toId, amount);
+                        System.out.print("请输入图书编号：");
+                        library.returnBook(scanner.nextLine().trim());
                         break;
 
                     case "5":
-                        System.out.print("账户编号：");
-                        BankAccount account = service.findAccount(
-                                scanner.nextLine().trim());
-
-                        if (account == null) {
-                            System.out.println("账户不存在");
-                        } else {
-                            account.showDetails();
-                        }
+                        library.showAllBooks();
                         break;
 
                     case "6":
-                        service.listAccounts();
-                        break;
-
-                    case "7":
-                        System.out.print("账户编号：");
-                        BankAccount historyAccount = service.findAccount(
-                                scanner.nextLine().trim());
-
-                        if (historyAccount == null) {
-                            System.out.println("账户不存在");
-                        } else {
-                            historyAccount.showTransactions();
-                        }
+                        library.showStatistics();
                         break;
 
                     case "0":
-                        scanner.close();
+                        running = false;
                         System.out.println("系统已退出");
-                        return;
+                        break;
 
                     default:
                         System.out.println("无效选项，请重新输入");
@@ -312,5 +237,7 @@ public class BankAccountSystem {
                 System.out.println("操作失败：" + e.getMessage());
             }
         }
+
+        scanner.close();
     }
 }
