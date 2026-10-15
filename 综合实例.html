@@ -115,7 +115,7 @@ public class BankAccountSystem {
                     "转入", amount, "来自账户 " + accountId));
         }
 
-        private void validateAmount(double amount) {
+        <!-- private void validateAmount(double amount) {
             if (!Double.isFinite(amount) || amount <= 0) {
                 throw new IllegalArgumentException("金额必须是大于零的有效数字");
             }
@@ -132,7 +132,7 @@ public class BankAccountSystem {
             for (Transaction transaction : transactions) {
                 System.out.println(transaction);
             }
-        }
+        } -->
 
         public void showDetails() {
             System.out.println("账户编号：" + accountId);
