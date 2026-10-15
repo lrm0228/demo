@@ -92,55 +92,7 @@ public class BankAccountSystem {
                     "取款", amount, "账户取款"));
         }
 
-        public void transferTo(BankAccount target, double amount) {
-            if (target == null) {
-                throw new IllegalArgumentException("目标账户不存在");
-            }
-            if (target == this) {
-                throw new IllegalArgumentException("不能向自己转账");
-            }
-
-            validateAmount(amount);
-
-            if (amount > balance) {
-                throw new IllegalArgumentException("余额不足，转账失败");
-            }
-
-            balance -= amount;
-            target.balance += amount;
-
-            transactions.add(new Transaction(
-                    "转出", amount, "转账至账户 " + target.accountId));
-            target.transactions.add(new Transaction(
-                    "转入", amount, "来自账户 " + accountId));
-        }
-
-        private void validateAmount(double amount) {
-            if (!Double.isFinite(amount) || amount <= 0) {
-                throw new IllegalArgumentException("金额必须是大于零的有效数字");
-            }
-        }
-
-        public void showTransactions() {
-            System.out.println("===== 账户交易记录 =====");
-
-            if (transactions.isEmpty()) {
-                System.out.println("暂无交易记录");
-                return;
-            }
-
-            for (Transaction transaction : transactions) {
-                System.out.println(transaction);
-            }
-        }
-
-        public void showDetails() {
-            System.out.println("账户编号：" + accountId);
-            System.out.println("账户姓名：" + owner);
-            System.out.printf("当前余额：%.2f%n", balance);
-        }
-    }
-
+    
     static class BankService {
         private final Map<String, BankAccount> accounts =
                 new LinkedHashMap<>();
