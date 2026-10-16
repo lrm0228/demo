@@ -62,36 +62,6 @@ public class LibraryManagementSystem {
         System.out.println("新增图书成功：" + book.getTitle());
     }
 
-    /**
-     * 归还图书
-     */
-    public void returnBook(String readerId, String bookId) {
-        Reader reader = readers.get(readerId);
-        Book book = books.get(bookId);
-
-        if (reader == null || book == null) {
-            System.out.println("读者或图书不存在。");
-            return;
-        }
-
-        if (!reader.getBorrowedBookIds().contains(bookId)) {
-            System.out.println("该读者没有借阅此图书。");
-            return;
-        }
-
-        BorrowRecord record = borrowRecords.values()
-                .stream()
-                .filter(r -> r.getReaderId().equals(readerId)
-                        && r.getBookId().equals(bookId)
-                        && !r.isReturned())
-                .findFirst()
-                .orElse(null);
-
-        if (record == null) {
-            System.out.println("未找到有效借阅记录。");
-            return;
-        }
-
         LocalDate returnDate = LocalDate.now();
         record.setReturnDate(returnDate);
         record.setReturned(true);
