@@ -21,30 +21,4 @@ public class StudentManager {
             return score;
         }
     }
-
-    public static void main(String[] args) {
-        List<Student> students = new ArrayList<>();
-
-        students.add(new Student("张三", 88));
-        students.add(new Student("李四", 92));
-        students.add(new Student("王五", 76));
-
-        double total = 0;
-
-        System.out.println("===== 学生成绩表 =====");
-
-        for (Student student : students) {
-            System.out.printf(
-                "姓名：%s，成绩：%.1f%n",
-                student.getName(),
-                student.getScore()
-            );
-
-            total += student.getScore();
-        }
-
-        double average = total / students.size();
-
-        System.out.printf("班级平均分：%.2f%n", average);
-    }
 }
