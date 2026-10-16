@@ -31,22 +31,6 @@ public class LibraryManagementSystem {
         system.displayStatistics();
     }
 
-    /**
-     * 初始化测试数据
-     */
-    public void initializeData() {
-        addBook(new Book("B001", "Java核心技术", "Cay S. Horstmann", 10));
-        addBook(new Book("B002", "深入理解Java虚拟机", "周志明", 8));
-        addBook(new Book("B003", "Effective Java", "Joshua Bloch", 6));
-        addBook(new Book("B004", "算法导论", "Thomas H. Cormen", 5));
-        addBook(new Book("B005", "设计模式", "Erich Gamma", 7));
-
-        addReader(new Reader("R001", "张三", "13800000001"));
-        addReader(new Reader("R002", "李四", "13800000002"));
-        addReader(new Reader("R003", "王五", "13800000003"));
-
-        System.out.println("图书馆初始化完成。");
-    }
 
     /**
      * 添加图书
@@ -60,92 +44,6 @@ public class LibraryManagementSystem {
 
         books.put(book.getId(), book);
         System.out.println("新增图书成功：" + book.getTitle());
-    }
-
-    /**
-     * 删除图书
-     */
-    public boolean removeBook(String bookId) {
-        Book book = books.get(bookId);
-
-        if (book == null) {
-            System.out.println("图书不存在：" + bookId);
-            return false;
-        }
-
-        if (book.getAvailableCount() != book.getTotalCount()) {
-            System.out.println("该图书仍有未归还记录，不能删除。");
-            return false;
-        }
-
-        books.remove(bookId);
-        System.out.println("删除图书成功：" + book.getTitle());
-        return true;
-    }
-
-    /**
-     * 注册读者
-     */
-    public void addReader(Reader reader) {
-        Objects.requireNonNull(reader, "读者不能为空");
-
-        if (readers.containsKey(reader.getId())) {
-            throw new IllegalArgumentException("读者编号已存在：" + reader.getId());
-        }
-
-        readers.put(reader.getId(), reader);
-        System.out.println("读者注册成功：" + reader.getName());
-    }
-
-    /**
-     * 借阅图书
-     */
-    public void borrowBook(String readerId, String bookId) {
-        Reader reader = readers.get(readerId);
-        Book book = books.get(bookId);
-
-        if (reader == null) {
-            System.out.println("读者不存在：" + readerId);
-            return;
-        }
-
-        if (book == null) {
-            System.out.println("图书不存在：" + bookId);
-            return;
-        }
-
-        if (reader.getBorrowedBookIds().size() >= MAX_BORROW_COUNT) {
-            System.out.println("已达到最大借阅数量。");
-            return;
-        }
-
-        if (book.getAvailableCount() <= 0) {
-            System.out.println("图书库存不足：" + book.getTitle());
-            return;
-        }
-
-        if (reader.getBorrowedBookIds().contains(bookId)) {
-            System.out.println("请勿重复借阅同一本图书。");
-            return;
-        }
-
-        LocalDate borrowDate = LocalDate.now();
-        LocalDate dueDate = borrowDate.plusDays(BORROW_DAYS);
-
-        BorrowRecord record = new BorrowRecord(
-                UUID.randomUUID().toString(),
-                readerId,
-                bookId,
-                borrowDate,
-                dueDate
-        );
-
-        book.setAvailableCount(book.getAvailableCount() - 1);
-        reader.getBorrowedBookIds().add(bookId);
-        borrowRecords.put(record.getRecordId(), record);
-
-        System.out.println("借阅成功：" + book.getTitle());
-        System.out.println("应还日期：" + dueDate);
     }
 
     /**
@@ -217,6 +115,9 @@ public class LibraryManagementSystem {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 展示所有图书
+     */
     public void displayAllBooks() {
         System.out.println("\n========== 图书列表 ==========");
 
@@ -279,6 +180,13 @@ public class LibraryManagementSystem {
                 .filter(record -> !record.isReturned())
                 .filter(record -> record.getDueDate().isBefore(LocalDate.now()))
                 .count();
+
+        System.out.println("\n========== 图书馆统计 ==========");
+        System.out.println("图书总册数：" + totalBooks);
+        System.out.println("当前可借册数：" + availableBooks);
+        System.out.println("注册读者数：" + readers.size());
+        System.out.println("当前借阅记录数：" + activeRecords);
+        System.out.println("逾期未还记录数：" + overdueRecords);
     }
 
     static class Book {
@@ -379,18 +287,6 @@ public class LibraryManagementSystem {
             this.borrowDate = borrowDate;
             this.dueDate = dueDate;
             this.returned = false;
-        }
-
-        public String getRecordId() {
-            return recordId;
-        }
-
-        public String getReaderId() {
-            return readerId;
-        }
-
-        public String getBookId() {
-            return bookId;
         }
 
         public LocalDate getBorrowDate() {

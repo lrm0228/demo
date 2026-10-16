@@ -152,48 +152,7 @@ public class LibraryManagementSystem {
 
         boolean running = true;
 
-        while (running) {
-            System.out.println("\n===== 图书管理系统 =====");
-            System.out.println("1. 添加图书");
-            System.out.println("2. 查询图书");
-            System.out.println("3. 借阅图书");
-            System.out.println("4. 归还图书");
-            System.out.println("5. 查看所有图书");
-            System.out.println("6. 查看库存统计");
-            System.out.println("0. 退出系统");
-            System.out.print("请选择操作：");
-
-            String choice = scanner.nextLine().trim();
-
-            try {
-                switch (choice) {
-                    case "1":
-                        System.out.print("请输入图书编号：");
-                        String id = scanner.nextLine().trim();
-                        System.out.print("请输入书名：");
-                        String title = scanner.nextLine().trim();
-                        System.out.print("请输入作者：");
-                        String author = scanner.nextLine().trim();
-
-                        if (id.isEmpty() || title.isEmpty()
-                                || author.isEmpty()) {
-                            System.out.println("图书信息不能为空");
-                            break;
-                        }
-
-                        library.addBook(new Book(id, title, author));
-                        break;
-
-                    case "2":
-                        System.out.print("请输入书名关键词：");
-                        library.searchByTitle(scanner.nextLine().trim());
-                        break;
-
-                    case "3":
-                        System.out.print("请输入图书编号：");
-                        library.borrowBook(scanner.nextLine().trim());
-                        break;
-
+        
                     case "4":
                         System.out.print("请输入图书编号：");
                         library.returnBook(scanner.nextLine().trim());
