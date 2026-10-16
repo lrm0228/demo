@@ -1,21 +1,306 @@
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * 图书馆管理系统
+ * 功能：图书管理、读者管理、借阅管理、归还管理、逾期计算、数据统计
+ */
 public class LibraryManagementSystem {
+
+    private final Map<String, Book> books = new HashMap<>();
+    private final Map<String, Reader> readers = new HashMap<>();
+    private final Map<String, BorrowRecord> borrowRecords = new HashMap<>();
+
+    private static final int MAX_BORROW_COUNT = 5;
+    private static final int BORROW_DAYS = 30;
+    private static final double DAILY_FINE = 0.5;
+
+    public static void main(String[] args) {
+        LibraryManagementSystem system = new LibraryManagementSystem();
+        system.initializeData();
+
+        system.displayAllBooks();
+        system.borrowBook("R001", "B001");
+        system.borrowBook("R002", "B002");
+        system.displayReaderBorrowingRecords("R001");
+
+        system.returnBook("R001", "B001");
+        system.displayStatistics();
+    }
+
+    /**
+     * 初始化测试数据
+     */
+    public void initializeData() {
+        addBook(new Book("B001", "Java核心技术", "Cay S. Horstmann", 10));
+        addBook(new Book("B002", "深入理解Java虚拟机", "周志明", 8));
+        addBook(new Book("B003", "Effective Java", "Joshua Bloch", 6));
+        addBook(new Book("B004", "算法导论", "Thomas H. Cormen", 5));
+        addBook(new Book("B005", "设计模式", "Erich Gamma", 7));
+
+        addReader(new Reader("R001", "张三", "13800000001"));
+        addReader(new Reader("R002", "李四", "13800000002"));
+        addReader(new Reader("R003", "王五", "13800000003"));
+
+        System.out.println("图书馆初始化完成。");
+    }
+
+    /**
+     * 添加图书
+     */
+    public void addBook(Book book) {
+        Objects.requireNonNull(book, "图书不能为空");
+
+        if (books.containsKey(book.getId())) {
+            throw new IllegalArgumentException("图书编号已存在：" + book.getId());
+        }
+
+        books.put(book.getId(), book);
+        System.out.println("新增图书成功：" + book.getTitle());
+    }
+
+    /**
+     * 删除图书
+     */
+    public boolean removeBook(String bookId) {
+        Book book = books.get(bookId);
+
+        if (book == null) {
+            System.out.println("图书不存在：" + bookId);
+            return false;
+        }
+
+        if (book.getAvailableCount() != book.getTotalCount()) {
+            System.out.println("该图书仍有未归还记录，不能删除。");
+            return false;
+        }
+
+        books.remove(bookId);
+        System.out.println("删除图书成功：" + book.getTitle());
+        return true;
+    }
+
+    /**
+     * 注册读者
+     */
+    public void addReader(Reader reader) {
+        Objects.requireNonNull(reader, "读者不能为空");
+
+        if (readers.containsKey(reader.getId())) {
+            throw new IllegalArgumentException("读者编号已存在：" + reader.getId());
+        }
+
+        readers.put(reader.getId(), reader);
+        System.out.println("读者注册成功：" + reader.getName());
+    }
+
+    /**
+     * 借阅图书
+     */
+    public void borrowBook(String readerId, String bookId) {
+        Reader reader = readers.get(readerId);
+        Book book = books.get(bookId);
+
+        if (reader == null) {
+            System.out.println("读者不存在：" + readerId);
+            return;
+        }
+
+        if (book == null) {
+            System.out.println("图书不存在：" + bookId);
+            return;
+        }
+
+        if (reader.getBorrowedBookIds().size() >= MAX_BORROW_COUNT) {
+            System.out.println("已达到最大借阅数量。");
+            return;
+        }
+
+        if (book.getAvailableCount() <= 0) {
+            System.out.println("图书库存不足：" + book.getTitle());
+            return;
+        }
+
+        if (reader.getBorrowedBookIds().contains(bookId)) {
+            System.out.println("请勿重复借阅同一本图书。");
+            return;
+        }
+
+        LocalDate borrowDate = LocalDate.now();
+        LocalDate dueDate = borrowDate.plusDays(BORROW_DAYS);
+
+        BorrowRecord record = new BorrowRecord(
+                UUID.randomUUID().toString(),
+                readerId,
+                bookId,
+                borrowDate,
+                dueDate
+        );
+
+        book.setAvailableCount(book.getAvailableCount() - 1);
+        reader.getBorrowedBookIds().add(bookId);
+        borrowRecords.put(record.getRecordId(), record);
+
+        System.out.println("借阅成功：" + book.getTitle());
+        System.out.println("应还日期：" + dueDate);
+    }
+
+    /**
+     * 归还图书
+     */
+    public void returnBook(String readerId, String bookId) {
+        Reader reader = readers.get(readerId);
+        Book book = books.get(bookId);
+
+        if (reader == null || book == null) {
+            System.out.println("读者或图书不存在。");
+            return;
+        }
+
+        if (!reader.getBorrowedBookIds().contains(bookId)) {
+            System.out.println("该读者没有借阅此图书。");
+            return;
+        }
+
+        BorrowRecord record = borrowRecords.values()
+                .stream()
+                .filter(r -> r.getReaderId().equals(readerId)
+                        && r.getBookId().equals(bookId)
+                        && !r.isReturned())
+                .findFirst()
+                .orElse(null);
+
+        if (record == null) {
+            System.out.println("未找到有效借阅记录。");
+            return;
+        }
+
+        LocalDate returnDate = LocalDate.now();
+        record.setReturnDate(returnDate);
+        record.setReturned(true);
+
+        long overdueDays = Math.max(
+                0,
+                ChronoUnit.DAYS.between(record.getDueDate(), returnDate)
+        );
+
+        double fine = overdueDays * DAILY_FINE;
+
+        book.setAvailableCount(book.getAvailableCount() + 1);
+        reader.getBorrowedBookIds().remove(bookId);
+
+        System.out.println("归还成功：" + book.getTitle());
+        System.out.println("逾期天数：" + overdueDays);
+        System.out.println("应缴罚款：" + fine + " 元");
+    }
+
+    /**
+     * 按书名搜索图书
+     */
+    public List<Book> searchBooks(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return new ArrayList<>(books.values());
+        }
+
+        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
+
+        return books.values().stream()
+                .filter(book ->
+                        book.getTitle().toLowerCase(Locale.ROOT)
+                                .contains(normalizedKeyword)
+                        || book.getAuthor().toLowerCase(Locale.ROOT)
+                                .contains(normalizedKeyword))
+                .sorted(Comparator.comparing(Book::getTitle))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 展示所有图书
+     */
+    public void displayAllBooks() {
+        System.out.println("\n========== 图书列表 ==========");
+
+        books.values().stream()
+                .sorted(Comparator.comparing(Book::getId))
+                .forEach(book -> System.out.println(
+                        "编号：" + book.getId()
+                        + "，书名：" + book.getTitle()
+                        + "，作者：" + book.getAuthor()
+                        + "，库存：" + book.getAvailableCount()
+                        + "/" + book.getTotalCount()
+                ));
+    }
+
+    /**
+     * 查询读者借阅记录
+     */
+    public void displayReaderBorrowingRecords(String readerId) {
+        Reader reader = readers.get(readerId);
+
+        if (reader == null) {
+            System.out.println("读者不存在。");
+            return;
+        }
+
+        System.out.println("\n========== " + reader.getName() + " 的借阅记录 ==========");
+
+        borrowRecords.values().stream()
+                .filter(record -> record.getReaderId().equals(readerId))
+                .sorted(Comparator.comparing(BorrowRecord::getBorrowDate).reversed())
+                .forEach(record -> {
+                    Book book = books.get(record.getBookId());
+
+                    System.out.println(
+                            "图书：" + (book == null ? "未知图书" : book.getTitle())
+                            + "，借阅日期：" + record.getBorrowDate()
+                            + "，应还日期：" + record.getDueDate()
+                            + "，状态：" + (record.isReturned() ? "已归还" : "借阅中")
+                    );
+                });
+    }
+
+    /**
+     * 统计图书馆数据
+     */
+    public void displayStatistics() {
+        int totalBooks = books.values().stream()
+                .mapToInt(Book::getTotalCount)
+                .sum();
+
+        int availableBooks = books.values().stream()
+                .mapToInt(Book::getAvailableCount)
+                .sum();
+
+        long activeRecords = borrowRecords.values().stream()
+                .filter(record -> !record.isReturned())
+                .count();
+
+        long overdueRecords = borrowRecords.values().stream()
+                .filter(record -> !record.isReturned())
+                .filter(record -> record.getDueDate().isBefore(LocalDate.now()))
+                .count();
+    }
 
     static class Book {
         private final String id;
-        private String title;
-        private String author;
-        private boolean borrowed;
+        private final String title;
+        private final String author;
+        private final int totalCount;
+        private int availableCount;
 
-        public Book(String id, String title, String author) {
+        public Book(String id, String title, String author, int totalCount) {
+            if (totalCount <= 0) {
+                throw new IllegalArgumentException("图书总数量必须大于零");
+            }
+
             this.id = id;
             this.title = title;
             this.author = author;
-            this.borrowed = false;
+            this.totalCount = totalCount;
+            this.availableCount = totalCount;
         }
 
         public String getId() {
@@ -26,215 +311,113 @@ public class LibraryManagementSystem {
             return title;
         }
 
-
-        public boolean isBorrowed() {
-            return borrowed;
+        public String getAuthor() {
+            return author;
         }
 
-        public void setTitle(String title) {
-            this.title = title;
+        public int getTotalCount() {
+            return totalCount;
         }
 
-        public void setAuthor(String author) {
-            this.author = author;
+        public int getAvailableCount() {
+            return availableCount;
         }
 
-        public void borrow() {
-            if (borrowed) {
-                throw new IllegalStateException("该图书已经被借出");
+        public void setAvailableCount(int availableCount) {
+            if (availableCount < 0 || availableCount > totalCount) {
+                throw new IllegalArgumentException("库存数量不合法");
             }
-            borrowed = true;
-        }
-
-        public void returnBook() {
-            if (!borrowed) {
-                throw new IllegalStateException("该图书当前未被借出");
-            }
-            borrowed = false;
-        }
-
-        @Override
-        public String toString() {
-            return "编号：" + id
-                    + "，书名：" + title
-                    + "，作者：" + author
-                    + "，状态：" + (borrowed ? "已借出" : "在馆");
+            this.availableCount = availableCount;
         }
     }
 
-    static class Library {
-        private final List<Book> books = new ArrayList<>();
+    static class Reader {
+        private final String id;
+        private final String name;
+        private final String phone;
+        private final Set<String> borrowedBookIds = new HashSet<>();
 
-        public void addBook(Book book) {
-            if (findById(book.getId()) != null) {
-                throw new IllegalArgumentException("图书编号已存在");
-            }
-            books.add(book);
-            System.out.println("图书添加成功：" + book.getTitle());
+        public Reader(String id, String name, String phone) {
+            this.id = id;
+            this.name = name;
+            this.phone = phone;
         }
 
-        public Book findById(String id) {
-            for (Book book : books) {
-                if (book.getId().equals(id)) {
-                    return book;
-                }
-            }
-            return null;
+        public String getId() {
+            return id;
         }
 
-        public void searchByTitle(String keyword) {
-            boolean found = false;
-
-            for (Book book : books) {
-                if (book.getTitle().toLowerCase()
-                        .contains(keyword.toLowerCase())) {
-                    System.out.println(book);
-                    found = true;
-                }
-            }
-
-            if (!found) {
-                System.out.println("没有找到匹配的图书");
-            }
+        public String getName() {
+            return name;
         }
 
-        public void borrowBook(String id) {
-            Book book = findById(id);
-
-            if (book == null) {
-                System.out.println("图书不存在");
-                return;
-            }
-
-            try {
-                book.borrow();
-                System.out.println("借阅成功：" + book.getTitle());
-            } catch (IllegalStateException e) {
-                System.out.println("借阅失败：" + e.getMessage());
-            }
+        public String getPhone() {
+            return phone;
         }
 
-        public void returnBook(String id) {
-            Book book = findById(id);
-
-            if (book == null) {
-                System.out.println("图书不存在");
-                return;
-            }
-
-            try {
-                book.returnBook();
-                System.out.println("归还成功：" + book.getTitle());
-            } catch (IllegalStateException e) {
-                System.out.println("归还失败：" + e.getMessage());
-            }
-        }
-
-        public void showAllBooks() {
-            if (books.isEmpty()) {
-                System.out.println("当前没有图书");
-                return;
-            }
-
-            System.out.println("===== 图书库存 =====");
-            for (Book book : books) {
-                System.out.println(book);
-            }
-        }
-
-        public void showStatistics() {
-            int borrowedCount = 0;
-
-            for (Book book : books) {
-                if (book.isBorrowed()) {
-                    borrowedCount++;
-                }
-            }
-
-            System.out.println("图书总数：" + books.size());
-            System.out.println("已借出：" + borrowedCount);
-            System.out.println("在馆数量：" + (books.size() - borrowedCount));
+        public Set<String> getBorrowedBookIds() {
+            return borrowedBookIds;
         }
     }
 
-    public static void main(String[] args) {
-        Library library = new Library();
-        Scanner scanner = new Scanner(System.in);
+    static class BorrowRecord {
+        private final String recordId;
+        private final String readerId;
+        private final String bookId;
+        private final LocalDate borrowDate;
+        private final LocalDate dueDate;
+        private LocalDate returnDate;
+        private boolean returned;
 
-        library.addBook(new Book("B001", "Java编程思想", "Bruce Eckel"));
-        library.addBook(new Book("B002", "深入理解Java虚拟机", "周志明"));
-        library.addBook(new Book("B003", "设计模式", "Erich Gamma"));
-
-        boolean running = true;
-
-        while (running) {
-            System.out.println("\n===== 图书管理系统 =====");
-            System.out.println("1. 添加图书");
-            System.out.println("2. 查询图书");
-            System.out.println("3. 借阅图书");
-            System.out.println("4. 归还图书");
-            System.out.println("5. 查看所有图书");
-            System.out.println("6. 查看库存统计");
-            System.out.println("0. 退出系统");
-            System.out.print("请选择操作：");
-
-            String choice = scanner.nextLine().trim();
-
-            try {
-                switch (choice) {
-                    case "1":
-                        System.out.print("请输入图书编号：");
-                        String id = scanner.nextLine().trim();
-                        System.out.print("请输入书名：");
-                        String title = scanner.nextLine().trim();
-                        System.out.print("请输入作者：");
-                        String author = scanner.nextLine().trim();
-
-                        if (id.isEmpty() || title.isEmpty()
-                                || author.isEmpty()) {
-                            System.out.println("图书信息不能为空");
-                            break;
-                        }
-
-                        library.addBook(new Book(id, title, author));
-                        break;
-
-                    case "2":
-                        System.out.print("请输入书名关键词：");
-                        library.searchByTitle(scanner.nextLine().trim());
-                        break;
-
-                    case "3":
-                        System.out.print("请输入图书编号：");
-                        library.borrowBook(scanner.nextLine().trim());
-                        break;
-
-                    case "4":
-                        System.out.print("请输入图书编号：");
-                        library.returnBook(scanner.nextLine().trim());
-                        break;
-
-                    case "5":
-                        library.showAllBooks();
-                        break;
-
-                    case "6":
-                        library.showStatistics();
-                        break;
-
-                    case "0":
-                        running = false;
-                        System.out.println("系统已退出");
-                        break;
-
-                    default:
-                        System.out.println("无效选项，请重新输入");
-                }
-            } catch (IllegalArgumentException e) {
-                System.out.println("操作失败：" + e.getMessage());
-            }
+        public BorrowRecord(
+                String recordId,
+                String readerId,
+                String bookId,
+                LocalDate borrowDate,
+                LocalDate dueDate
+        ) {
+            this.recordId = recordId;
+            this.readerId = readerId;
+            this.bookId = bookId;
+            this.borrowDate = borrowDate;
+            this.dueDate = dueDate;
+            this.returned = false;
         }
 
-        scanner.close();
+        public String getRecordId() {
+            return recordId;
+        }
+
+        public String getReaderId() {
+            return readerId;
+        }
+
+        public String getBookId() {
+            return bookId;
+        }
+
+        public LocalDate getBorrowDate() {
+            return borrowDate;
+        }
+
+        public LocalDate getDueDate() {
+            return dueDate;
+        }
+
+        public LocalDate getReturnDate() {
+            return returnDate;
+        }
+
+        public void setReturnDate(LocalDate returnDate) {
+            this.returnDate = returnDate;
+        }
+
+        public boolean isReturned() {
+            return returned;
+        }
+
+        public void setReturned(boolean returned) {
+            this.returned = returned;
+        }
     }
 }
