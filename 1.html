@@ -31,22 +31,6 @@ public class LibraryManagementSystem {
         system.displayStatistics();
     }
 
-    /**
-     * 初始化测试数据
-     */
-    public void initializeData() {
-        addBook(new Book("B001", "Java核心技术", "Cay S. Horstmann", 10));
-        addBook(new Book("B002", "深入理解Java虚拟机", "周志明", 8));
-        addBook(new Book("B003", "Effective Java", "Joshua Bloch", 6));
-        addBook(new Book("B004", "算法导论", "Thomas H. Cormen", 5));
-        addBook(new Book("B005", "设计模式", "Erich Gamma", 7));
-
-        addReader(new Reader("R001", "张三", "13800000001"));
-        addReader(new Reader("R002", "李四", "13800000002"));
-        addReader(new Reader("R003", "王五", "13800000003"));
-
-        System.out.println("图书馆初始化完成。");
-    }
 
     /**
      * 添加图书
