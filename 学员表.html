@@ -1,648 +1,240 @@
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
-/**
- * 电商订单管理系统
- * 功能：商品管理、购物车、订单创建、支付、取消、库存管理、销售统计
- */
-public class ECommerceOrderSystem {
+public class LibraryManagementSystem {
 
-    private final Map<String, Product> products = new ConcurrentHashMap<>();
-    private final Map<String, ShoppingCart> carts = new ConcurrentHashMap<>();
-    private final Map<String, Order> orders = new ConcurrentHashMap<>();
+    static class Book {
+        private final String id;
+        private String title;
+        private String author;
+        private boolean borrowed;
 
-    private final AtomicInteger orderSequence = new AtomicInteger(10000);
-
-    public static void main(String[] args) {
-        ECommerceOrderSystem system = new ECommerceOrderSystem();
-        system.initializeProducts();
-
-        system.addToCart("U001", "P001", 2);
-        system.addToCart("U001", "P003", 1);
-
-        Order order = system.createOrder("U001", new BigDecimal("20.00"));
-
-        if (order != null) {
-            system.payOrder(order.getOrderId());
+        public Book(String id, String title, String author) {
+            this.id = id;
+            this.title = title;
+            this.author = author;
+            this.borrowed = false;
         }
 
-        system.printOrderDetails(order == null ? "" : order.getOrderId());
-        system.printSalesReport();
-    }
-
-    /**
-     * 初始化商品
-     */
-    public void initializeProducts() {
-        addProduct(new Product(
-                "P001", "机械键盘",
-                new BigDecimal("299.00"), 100, "数码配件"
-        ));
-
-        addProduct(new Product(
-                "P002", "无线鼠标",
-                new BigDecimal("129.00"), 200, "数码配件"
-        ));
-
-        addProduct(new Product(
-                "P003", "显示器",
-                new BigDecimal("1299.00"), 50, "电脑设备"
-        ));
-
-        addProduct(new Product(
-                "P004", "笔记本电脑",
-                new BigDecimal("5999.00"), 30, "电脑设备"
-        ));
-
-        System.out.println("商品数据初始化完成。");
-    }
-
-    /**
-     * 添加商品
-     */
-    public void addProduct(Product product) {
-        Objects.requireNonNull(product, "商品不能为空");
-
-        if (product.getPrice().compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("商品价格不能为负数");
+        public String getId() {
+            return id;
         }
 
-        if (products.putIfAbsent(product.getProductId(), product) != null) {
-            throw new IllegalArgumentException("商品编号重复");
-        }
-    }
-
-    /**
-     * 更新商品价格
-     */
-    public void updateProductPrice(String productId, BigDecimal newPrice) {
-        Product product = products.get(productId);
-
-        if (product == null) {
-            throw new IllegalArgumentException("商品不存在");
+        public String getTitle() {
+            return title;
         }
 
-        if (newPrice == null || newPrice.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("新价格不合法");
+
+        public boolean isBorrowed() {
+            return borrowed;
         }
 
-        synchronized (product) {
-            product.setPrice(newPrice);
-        }
-    }
-
-    /**
-     * 添加购物车商品
-     */
-    public void addToCart(String userId, String productId, int quantity) {
-        if (userId == null || userId.trim().isEmpty()) {
-            throw new IllegalArgumentException("用户编号不能为空");
+        public void setTitle(String title) {
+            this.title = title;
         }
 
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("购买数量必须大于零");
+        public void setAuthor(String author) {
+            this.author = author;
         }
 
-        Product product = products.get(productId);
-
-        if (product == null) {
-            throw new IllegalArgumentException("商品不存在：" + productId);
-        }
-
-        if (product.getStock() < quantity) {
-            throw new IllegalStateException("商品库存不足：" + product.getName());
-        }
-
-        ShoppingCart cart = carts.computeIfAbsent(
-                userId,
-                ShoppingCart::new
-        );
-
-        cart.addItem(productId, quantity);
-
-        System.out.println(
-                "已加入购物车：" + product.getName()
-                + "，数量：" + quantity
-        );
-    }
-
-    /**
-     * 从购物车移除商品
-     */
-    public void removeFromCart(String userId, String productId) {
-        ShoppingCart cart = carts.get(userId);
-
-        if (cart == null) {
-            System.out.println("购物车不存在。");
-            return;
-        }
-
-        cart.removeItem(productId);
-    }
-
-    /**
-     * 计算购物车总金额
-     */
-    public BigDecimal calculateCartTotal(String userId) {
-        ShoppingCart cart = carts.get(userId);
-
-        if (cart == null) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal total = BigDecimal.ZERO;
-
-        for (Map.Entry<String, Integer> entry : cart.getItems().entrySet()) {
-            Product product = products.get(entry.getKey());
-
-            if (product == null) {
-                continue;
+        public void borrow() {
+            if (borrowed) {
+                throw new IllegalStateException("该图书已经被借出");
             }
-
-            BigDecimal subtotal = product.getPrice()
-                    .multiply(BigDecimal.valueOf(entry.getValue()));
-
-            total = total.add(subtotal);
+            borrowed = true;
         }
 
-        return total.setScale(2, RoundingMode.HALF_UP);
+        public void returnBook() {
+            if (!borrowed) {
+                throw new IllegalStateException("该图书当前未被借出");
+            }
+            borrowed = false;
+        }
+
+        @Override
+        public String toString() {
+            return "编号：" + id
+                    + "，书名：" + title
+                    + "，作者：" + author
+                    + "，状态：" + (borrowed ? "已借出" : "在馆");
+        }
     }
 
-    /**
-     * 创建订单并预扣库存
-     */
-    public Order createOrder(String userId, BigDecimal discount) {
-        ShoppingCart cart = carts.get(userId);
+    static class Library {
+        private final List<Book> books = new ArrayList<>();
 
-        if (cart == null || cart.getItems().isEmpty()) {
-            System.out.println("购物车为空，无法创建订单。");
+        public void addBook(Book book) {
+            if (findById(book.getId()) != null) {
+                throw new IllegalArgumentException("图书编号已存在");
+            }
+            books.add(book);
+            System.out.println("图书添加成功：" + book.getTitle());
+        }
+
+        public Book findById(String id) {
+            for (Book book : books) {
+                if (book.getId().equals(id)) {
+                    return book;
+                }
+            }
             return null;
         }
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> orderItems = new ArrayList<>();
-        List<Product> lockedProducts = new ArrayList<>();
+        public void searchByTitle(String keyword) {
+            boolean found = false;
 
-        // 固定加锁顺序，降低多个订单同时购买多种商品时的死锁风险。
-        List<String> productIds = new ArrayList<>(cart.getItems().keySet());
-        Collections.sort(productIds);
-
-        try {
-            for (String productId : productIds) {
-                Product product = products.get(productId);
-
-                if (product == null) {
-                    throw new IllegalStateException("商品已下架：" + productId);
-                }
-
-                synchronized (product) {
-                    lockedProducts.add(product);
-
-                    int quantity = cart.getItems().get(productId);
-
-                    if (product.getStock() < quantity) {
-                        throw new IllegalStateException(
-                                "库存不足：" + product.getName()
-                        );
-                    }
-
-                    BigDecimal subtotal = product.getPrice()
-                            .multiply(BigDecimal.valueOf(quantity));
-
-                    totalAmount = totalAmount.add(subtotal);
-
-                    orderItems.add(new OrderItem(
-                            productId,
-                            product.getName(),
-                            product.getPrice(),
-                            quantity,
-                            subtotal
-                    ));
+            for (Book book : books) {
+                if (book.getTitle().toLowerCase()
+                        .contains(keyword.toLowerCase())) {
+                    System.out.println(book);
+                    found = true;
                 }
             }
 
-            BigDecimal actualDiscount = discount == null
-                    ? BigDecimal.ZERO
-                    : discount;
+            if (!found) {
+                System.out.println("没有找到匹配的图书");
+            }
+        }
 
-            if (actualDiscount.compareTo(BigDecimal.ZERO) < 0) {
-                throw new IllegalArgumentException("优惠金额不能为负数");
+        public void borrowBook(String id) {
+            Book book = findById(id);
+
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
             }
 
-            if (actualDiscount.compareTo(totalAmount) > 0) {
-                actualDiscount = totalAmount;
+            try {
+                book.borrow();
+                System.out.println("借阅成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("借阅失败：" + e.getMessage());
+            }
+        }
+
+        public void returnBook(String id) {
+            Book book = findById(id);
+
+            if (book == null) {
+                System.out.println("图书不存在");
+                return;
             }
 
-            BigDecimal payableAmount = totalAmount
-                    .subtract(actualDiscount)
-                    .setScale(2, RoundingMode.HALF_UP);
+            try {
+                book.returnBook();
+                System.out.println("归还成功：" + book.getTitle());
+            } catch (IllegalStateException e) {
+                System.out.println("归还失败：" + e.getMessage());
+            }
+        }
 
-            String orderId = generateOrderId();
+        public void showAllBooks() {
+            if (books.isEmpty()) {
+                System.out.println("当前没有图书");
+                return;
+            }
 
-            Order order = new Order(
-                    orderId,
-                    userId,
-                    orderItems,
-                    totalAmount,
-                    actualDiscount,
-                    payableAmount
-            );
+            System.out.println("===== 图书库存 =====");
+            for (Book book : books) {
+                System.out.println(book);
+            }
+        }
 
-            // 扣减库存前再次检查全部商品，避免只扣减部分商品。
-            for (OrderItem item : orderItems) {
-                Product product = products.get(item.getProductId());
+        public void showStatistics() {
+            int borrowedCount = 0;
 
-                if (product.getStock() < item.getQuantity()) {
-                    throw new IllegalStateException(
-                            "库存发生变化：" + item.getProductName()
-                    );
+            for (Book book : books) {
+                if (book.isBorrowed()) {
+                    borrowedCount++;
                 }
             }
 
-            for (OrderItem item : orderItems) {
-                Product product = products.get(item.getProductId());
-                product.setStock(product.getStock() - item.getQuantity());
-            }
-
-            orders.put(orderId, order);
-            carts.remove(userId);
-
-            System.out.println("订单创建成功：" + orderId);
-            System.out.println("商品总额：" + totalAmount);
-            System.out.println("优惠金额：" + actualDiscount);
-            System.out.println("实付金额：" + payableAmount);
-
-            return order;
-
-        } catch (RuntimeException exception) {
-            System.err.println("创建订单失败：" + exception.getMessage());
-            throw exception;
+            System.out.println("图书总数：" + books.size());
+            System.out.println("已借出：" + borrowedCount);
+            System.out.println("在馆数量：" + (books.size() - borrowedCount));
         }
     }
 
-    /**
-     * 支付订单
-     */
-    public boolean payOrder(String orderId) {
-        Order order = orders.get(orderId);
+    public static void main(String[] args) {
+        Library library = new Library();
+        Scanner scanner = new Scanner(System.in);
 
-        if (order == null) {
-            System.out.println("订单不存在：" + orderId);
-            return false;
-        }
+        library.addBook(new Book("B001", "Java编程思想", "Bruce Eckel"));
+        library.addBook(new Book("B002", "深入理解Java虚拟机", "周志明"));
+        library.addBook(new Book("B003", "设计模式", "Erich Gamma"));
 
-        synchronized (order) {
-            if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-                System.out.println("当前订单状态不允许支付。");
-                return false;
-            }
+        boolean running = true;
 
-            // 示例中模拟支付成功。
-            // 生产环境应接入支付渠道并校验回调签名、金额和商户订单号。
-            order.setStatus(OrderStatus.PAID);
-            order.setPaidAt(LocalDateTime.now());
+        while (running) {
+            System.out.println("\n===== 图书管理系统 =====");
+            System.out.println("1. 添加图书");
+            System.out.println("2. 查询图书");
+            System.out.println("3. 借阅图书");
+            System.out.println("4. 归还图书");
+            System.out.println("5. 查看所有图书");
+            System.out.println("6. 查看库存统计");
+            System.out.println("0. 退出系统");
+            System.out.print("请选择操作：");
 
-            System.out.println("订单支付成功：" + orderId);
-            return true;
-        }
-    }
+            String choice = scanner.nextLine().trim();
 
-    /**
-     * 取消订单并恢复库存
-     */
-    public boolean cancelOrder(String orderId) {
-        Order order = orders.get(orderId);
+            try {
+                switch (choice) {
+                    case "1":
+                        System.out.print("请输入图书编号：");
+                        String id = scanner.nextLine().trim();
+                        System.out.print("请输入书名：");
+                        String title = scanner.nextLine().trim();
+                        System.out.print("请输入作者：");
+                        String author = scanner.nextLine().trim();
 
-        if (order == null) {
-            System.out.println("订单不存在。");
-            return false;
-        }
+                        if (id.isEmpty() || title.isEmpty()
+                                || author.isEmpty()) {
+                            System.out.println("图书信息不能为空");
+                            break;
+                        }
 
-        synchronized (order) {
-            if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-                System.out.println("只有待支付订单可以取消。");
-                return false;
-            }
+                        library.addBook(new Book(id, title, author));
+                        break;
 
-            List<String> productIds = order.getItems().stream()
-                    .map(OrderItem::getProductId)
-                    .distinct()
-                    .sorted()
-                    .collect(Collectors.toList());
+                    case "2":
+                        System.out.print("请输入书名关键词：");
+                        library.searchByTitle(scanner.nextLine().trim());
+                        break;
 
-            for (String productId : productIds) {
-                Product product = products.get(productId);
+                    case "3":
+                        System.out.print("请输入图书编号：");
+                        library.borrowBook(scanner.nextLine().trim());
+                        break;
 
-                if (product == null) {
-                    throw new IllegalStateException(
-                            "无法恢复库存，商品不存在：" + productId
-                    );
+                    case "4":
+                        System.out.print("请输入图书编号：");
+                        library.returnBook(scanner.nextLine().trim());
+                        break;
+
+                    case "5":
+                        library.showAllBooks();
+                        break;
+
+                    case "6":
+                        library.showStatistics();
+                        break;
+
+                    case "0":
+                        running = false;
+                        System.out.println("系统已退出");
+                        break;
+
+                    default:
+                        System.out.println("无效选项，请重新输入");
                 }
-
-                synchronized (product) {
-                    int quantity = order.getItems().stream()
-                            .filter(item -> item.getProductId().equals(productId))
-                            .mapToInt(OrderItem::getQuantity)
-                            .sum();
-
-                    product.setStock(product.getStock() + quantity);
-                }
+            } catch (IllegalArgumentException e) {
+                System.out.println("操作失败：" + e.getMessage());
             }
-
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancelledAt(LocalDateTime.now());
-
-            System.out.println("订单已取消：" + orderId);
-            return true;
-        }
-    }
-
-    /**
-     * 查询订单详情
-     */
-    public void printOrderDetails(String orderId) {
-        Order order = orders.get(orderId);
-
-        if (order == null) {
-            System.out.println("未找到订单。");
-            return;
         }
 
-        System.out.println("\n========== 订单详情 ==========");
-        System.out.println("订单编号：" + order.getOrderId());
-        System.out.println("用户编号：" + order.getUserId());
-        System.out.println("订单状态：" + order.getStatus());
-        System.out.println("创建时间：" + order.getCreatedAt());
-        System.out.println("商品总额：" + order.getTotalAmount());
-        System.out.println("优惠金额：" + order.getDiscount());
-        System.out.println("实付金额：" + order.getPayableAmount());
-
-        for (OrderItem item : order.getItems()) {
-            System.out.println(
-                    item.getProductName()
-                    + "，单价：" + item.getUnitPrice()
-                    + "，数量：" + item.getQuantity()
-                    + "，小计：" + item.getSubtotal()
-            );
-        }
-    }
-
-    /**
-     * 销售统计报表
-     */
-    public void printSalesReport() {
-        List<Order> paidOrders = orders.values().stream()
-                .filter(order -> order.getStatus() == OrderStatus.PAID)
-                .collect(Collectors.toList());
-
-        BigDecimal totalSales = paidOrders.stream()
-                .map(Order::getPayableAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        int totalItemsSold = paidOrders.stream()
-                .flatMap(order -> order.getItems().stream())
-                .mapToInt(OrderItem::getQuantity)
-                .sum();
-
-        Map<String, Long> productSales = paidOrders.stream()
-                .flatMap(order -> order.getItems().stream())
-                .collect(Collectors.groupingBy(
-                        OrderItem::getProductName,
-                        Collectors.summingLong(OrderItem::getQuantity)
-                ));
-
-        System.out.println("\n========== 销售统计报表 ==========");
-        System.out.println("订单总数：" + orders.size());
-        System.out.println("已支付订单数：" + paidOrders.size());
-        System.out.println("销售商品总件数：" + totalItemsSold);
-        System.out.println("销售总额：" + totalSales);
-
-        System.out.println("商品销量排行：");
-
-        productSales.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .forEach(entry -> System.out.println(
-                        entry.getKey() + "："
-                        + entry.getValue() + " 件"
-                ));
-    }
-
-    private String generateOrderId() {
-        String timestamp = LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-        );
-
-        return "ORD-" + timestamp + "-" + orderSequence.incrementAndGet();
-    }
-
-    static class Product {
-        private final String productId;
-        private final String name;
-        private BigDecimal price;
-        private int stock;
-        private final String category;
-
-        public Product(
-                String productId,
-                String name,
-                BigDecimal price,
-                int stock,
-                String category
-        ) {
-            this.productId = productId;
-            this.name = name;
-            this.price = price;
-            this.stock = stock;
-            this.category = category;
-        }
-
-        public String getProductId() {
-            return productId;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public BigDecimal getPrice() {
-            return price;
-        }
-
-        public void setPrice(BigDecimal price) {
-            this.price = price;
-        }
-
-        public int getStock() {
-            return stock;
-        }
-
-        public void setStock(int stock) {
-            if (stock < 0) {
-                throw new IllegalArgumentException("库存不能为负数");
-            }
-            this.stock = stock;
-        }
-
-        public String getCategory() {
-            return category;
-        }
-    }
-
-    static class ShoppingCart {
-        private final String userId;
-        private final Map<String, Integer> items = new ConcurrentHashMap<>();
-
-        public ShoppingCart(String userId) {
-            this.userId = userId;
-        }
-
-        public synchronized void addItem(String productId, int quantity) {
-            items.merge(productId, quantity, Integer::sum);
-        }
-
-        public synchronized void removeItem(String productId) {
-            items.remove(productId);
-        }
-
-        public String getUserId() {
-            return userId;
-        }
-
-        public Map<String, Integer> getItems() {
-            return new HashMap<>(items);
-        }
-    }
-
-    static class OrderItem {
-        private final String productId;
-        private final String productName;
-        private final BigDecimal unitPrice;
-        private final int quantity;
-        private final BigDecimal subtotal;
-
-        public OrderItem(
-                String productId,
-                String productName,
-                BigDecimal unitPrice,
-                int quantity,
-                BigDecimal subtotal
-        ) {
-            this.productId = productId;
-            this.productName = productName;
-            this.unitPrice = unitPrice;
-            this.quantity = quantity;
-            this.subtotal = subtotal;
-        }
-
-        public String getProductId() {
-            return productId;
-        }
-
-        public String getProductName() {
-            return productName;
-        }
-
-        public BigDecimal getUnitPrice() {
-            return unitPrice;
-        }
-
-        public int getQuantity() {
-            return quantity;
-        }
-
-        public BigDecimal getSubtotal() {
-            return subtotal;
-        }
-    }
-
-    enum OrderStatus {
-        PENDING_PAYMENT,
-        PAID,
-        CANCELLED,
-        REFUNDED
-    }
-
-    //123
-    static class Order {
-        private final String orderId;
-        private final String userId;
-        private final List<OrderItem> items;
-        private final BigDecimal totalAmount;
-        private final BigDecimal discount;
-        private final BigDecimal payableAmount;
-        private final LocalDateTime createdAt;
-
-        private OrderStatus status;
-        private LocalDateTime paidAt;
-        private LocalDateTime cancelledAt;
-
-        public Order(
-                String orderId,
-                String userId,
-                List<OrderItem> items,
-                BigDecimal totalAmount,
-                BigDecimal discount,
-                BigDecimal payableAmount
-        ) {
-            this.orderId = orderId;
-            this.userId = userId;
-            this.items = new ArrayList<>(items);
-            this.totalAmount = totalAmount;
-            this.discount = discount;
-            this.payableAmount = payableAmount;
-            this.createdAt = LocalDateTime.now();
-            this.status = OrderStatus.PENDING_PAYMENT;
-        }
-
-        public String getOrderId() {
-            return orderId;
-        }
-
-        public String getUserId() {
-            return userId;
-        }
-
-        public List<OrderItem> getItems() {
-            return Collections.unmodifiableList(items);
-        }
-
-        public BigDecimal getTotalAmount() {
-            return totalAmount;
-        }
-
-        public BigDecimal getDiscount() {
-            return discount;
-        }
-
-        public BigDecimal getPayableAmount() {
-            return payableAmount;
-        }
-
-        public LocalDateTime getCreatedAt() {
-            return createdAt;
-        }
-
-        public OrderStatus getStatus() {
-            return status;
-        }
-
-        public void setStatus(OrderStatus status) {
-            this.status = status;
-        }
-
-        public LocalDateTime getPaidAt() {
-            return paidAt;
-        }
-
-        public void setCancelledAt(LocalDateTime cancelledAt) {
-            this.cancelledAt = cancelledAt;
-        }
+        scanner.close();
     }
 }
