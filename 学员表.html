@@ -82,21 +82,6 @@ public class LibraryManagementSystem {
             return null;
         }
 
-        public void searchByTitle(String keyword) {
-            boolean found = false;
-
-            for (Book book : books) {
-                if (book.getTitle().toLowerCase()
-                        .contains(keyword.toLowerCase())) {
-                    System.out.println(book);
-                    found = true;
-                }
-            }
-
-            if (!found) {
-                System.out.println("没有找到匹配的图书");
-            }
-        }
 
         public void borrowBook(String id) {
             Book book = findById(id);
