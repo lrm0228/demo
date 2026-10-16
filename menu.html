@@ -282,13 +282,6 @@ public class LibraryManagementSystem {
                 .filter(record -> !record.isReturned())
                 .filter(record -> record.getDueDate().isBefore(LocalDate.now()))
                 .count();
-
-        System.out.println("\n========== 图书馆统计 ==========");
-        System.out.println("图书总册数：" + totalBooks);
-        System.out.println("当前可借册数：" + availableBooks);
-        System.out.println("注册读者数：" + readers.size());
-        System.out.println("当前借阅记录数：" + activeRecords);
-        System.out.println("逾期未还记录数：" + overdueRecords);
     }
 
     static class Book {
