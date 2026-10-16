@@ -75,10 +75,6 @@ public class LibraryManagementSystem {
 
         book.setAvailableCount(book.getAvailableCount() + 1);
         reader.getBorrowedBookIds().remove(bookId);
-
-        System.out.println("归还成功：" + book.getTitle());
-        System.out.println("逾期天数：" + overdueDays);
-        System.out.println("应缴罚款：" + fine + " 元");
     }
 
     /**
