@@ -98,7 +98,7 @@ public class LibraryManagementSystem {
     /**
      * 按书名搜索图书
      */
-    <!-- public List<Book> searchBooks(String keyword) {
+    public List<Book> searchBooks(String keyword) {
         if (keyword == null || keyword.trim().isEmpty()) {
             return new ArrayList<>(books.values());
         }
@@ -113,7 +113,7 @@ public class LibraryManagementSystem {
                                 .contains(normalizedKeyword))
                 .sorted(Comparator.comparing(Book::getTitle))
                 .collect(Collectors.toList());
-    } -->
+    }
 
     /**
      * 展示所有图书
