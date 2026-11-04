@@ -94,27 +94,6 @@ public class LibraryManagementSystem {
         System.out.println("逾期天数：" + overdueDays);
         System.out.println("应缴罚款：" + fine + " 元");
     }
-
-    /**
-     * 按书名搜索图书
-     */
-    <!-- public List<Book> searchBooks(String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return new ArrayList<>(books.values());
-        }
-
-        String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
-
-        return books.values().stream()
-                .filter(book ->
-                        book.getTitle().toLowerCase(Locale.ROOT)
-                                .contains(normalizedKeyword)
-                        || book.getAuthor().toLowerCase(Locale.ROOT)
-                                .contains(normalizedKeyword))
-                .sorted(Comparator.comparing(Book::getTitle))
-                .collect(Collectors.toList());
-    } -->
-
     /**
      * 展示所有图书
      */
