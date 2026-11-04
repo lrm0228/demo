@@ -5,6 +5,17 @@ import java.util.Scanner;
 
 public class LibraryManagementSystem {
 
+        public void addBook(Book book) {
+        Objects.requireNonNull(book, "图书不能为空");
+
+        if (books.containsKey(book.getId())) {
+            throw new IllegalArgumentException("图书编号已存在：" + book.getId());
+        }
+
+        books.put(book.getId(), book);
+        System.out.println("新增图书成功：" + book.getTitle());
+    }
+
     static class Book {
         private final String id;
         private String title;
@@ -35,16 +46,6 @@ public class LibraryManagementSystem {
             this.title = title;
         }
 
-        public void setAuthor(String author) {
-            this.author = author;
-        }
-
-        public void borrow() {
-            if (borrowed) {
-                throw new IllegalStateException("该图书已经被借出");
-            }
-            borrowed = true;
-        }
 
         public void returnBook() {
             if (!borrowed) {
